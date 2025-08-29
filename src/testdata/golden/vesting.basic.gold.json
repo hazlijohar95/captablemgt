@@ -1,0 +1,103 @@
+{
+  "description": "4-year vesting with 1-year cliff, monthly vesting",
+  "testCases": [
+    {
+      "name": "Before cliff - nothing vested",
+      "input": {
+        "units": 100000,
+        "schedule": {
+          "start": "2025-01-01",
+          "cliffMonths": 12,
+          "durationMonths": 48,
+          "frequency": "MONTHLY"
+        },
+        "asOf": "2025-06-01"
+      },
+      "expectedVested": 0
+    },
+    {
+      "name": "At cliff - 25% vested",
+      "input": {
+        "units": 100000,
+        "schedule": {
+          "start": "2025-01-01",
+          "cliffMonths": 12,
+          "durationMonths": 48,
+          "frequency": "MONTHLY"
+        },
+        "asOf": "2026-01-01"
+      },
+      "expectedVested": 25000
+    },
+    {
+      "name": "18 months - 37.5% vested",
+      "input": {
+        "units": 100000,
+        "schedule": {
+          "start": "2025-01-01",
+          "cliffMonths": 12,
+          "durationMonths": 48,
+          "frequency": "MONTHLY"
+        },
+        "asOf": "2026-07-01"
+      },
+      "expectedVested": 37500
+    },
+    {
+      "name": "24 months - 50% vested",
+      "input": {
+        "units": 100000,
+        "schedule": {
+          "start": "2025-01-01",
+          "cliffMonths": 12,
+          "durationMonths": 48,
+          "frequency": "MONTHLY"
+        },
+        "asOf": "2027-01-01"
+      },
+      "expectedVested": 50000
+    },
+    {
+      "name": "36 months - 75% vested",
+      "input": {
+        "units": 100000,
+        "schedule": {
+          "start": "2025-01-01",
+          "cliffMonths": 12,
+          "durationMonths": 48,
+          "frequency": "MONTHLY"
+        },
+        "asOf": "2028-01-01"
+      },
+      "expectedVested": 75000
+    },
+    {
+      "name": "48 months - fully vested",
+      "input": {
+        "units": 100000,
+        "schedule": {
+          "start": "2025-01-01",
+          "cliffMonths": 12,
+          "durationMonths": 48,
+          "frequency": "MONTHLY"
+        },
+        "asOf": "2029-01-01"
+      },
+      "expectedVested": 100000
+    },
+    {
+      "name": "Quarterly vesting - at 15 months",
+      "input": {
+        "units": 100000,
+        "schedule": {
+          "start": "2025-01-01",
+          "cliffMonths": 12,
+          "durationMonths": 48,
+          "frequency": "QUARTERLY"
+        },
+        "asOf": "2026-04-01"
+      },
+      "expectedVested": 31250
+    }
+  ]
+}
