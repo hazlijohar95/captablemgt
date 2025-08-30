@@ -7,7 +7,8 @@ import {
   PhoneIcon,
   DocumentPlusIcon,
   PencilIcon,
-  EyeIcon
+  EyeIcon,
+  TrashIcon
 } from '@heroicons/react/24/outline';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { ErrorMessage } from '@/components/ErrorMessage';
@@ -45,7 +46,9 @@ export const StakeholdersList = React.memo(() => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
   const [showIssueModal, setShowIssueModal] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [selectedStakeholder, setSelectedStakeholder] = useState<{ id: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
   const { companyId, hasCompany } = useCompanyContext();
   
   const { stakeholders, loading, error, refreshStakeholders } = useStakeholdersData(companyId);
@@ -82,6 +85,30 @@ export const StakeholdersList = React.memo(() => {
     return stakeholder.securities
       .filter(s => !s.cancelled_at)
       .reduce((sum, security) => sum + security.quantity, 0);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedStakeholder) return;
+    
+    setDeleteLoading(true);
+    try {
+      const { capTableService } = await import('@/services/capTableService');
+      const result = await capTableService.deleteStakeholder(selectedStakeholder.id);
+      
+      if (result.success) {
+        setShowDeleteConfirm(false);
+        setSelectedStakeholder(null);
+        refreshStakeholders();
+      } else {
+        console.error('Failed to delete stakeholder:', result.error);
+        alert(result.error?.message || 'Failed to delete stakeholder');
+      }
+    } catch (error) {
+      console.error('Error deleting stakeholder:', error);
+      alert('An error occurred while deleting the stakeholder');
+    } finally {
+      setDeleteLoading(false);
+    }
   };
 
   // Show message if user hasn't created a company yet
@@ -340,6 +367,19 @@ export const StakeholdersList = React.memo(() => {
                           <EyeIcon className="h-3.5 w-3.5 mr-1" />
                           View
                         </button>
+                        <button
+                          onClick={() => {
+                            setSelectedStakeholder({ 
+                              id: stakeholder.id, 
+                              name: getStakeholderName(stakeholder) 
+                            });
+                            setShowDeleteConfirm(true);
+                          }}
+                          className="inline-flex items-center px-2.5 py-1.5 border border-red-300 text-xs font-medium rounded text-red-700 bg-white hover:bg-red-50"
+                        >
+                          <TrashIcon className="h-3.5 w-3.5 mr-1" />
+                          Delete
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -402,6 +442,48 @@ export const StakeholdersList = React.memo(() => {
         stakeholderId={selectedStakeholder?.id}
         stakeholderName={selectedStakeholder?.name}
       />
+      
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              Delete Stakeholder
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Are you sure you want to delete <strong>{selectedStakeholder?.name}</strong>? 
+              This action cannot be undone.
+            </p>
+            {getTotalShares(stakeholders.find(s => s.id === selectedStakeholder?.id) || { securities: [] } as any) > 0 && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3 mb-4">
+                <p className="text-sm text-yellow-800">
+                  <strong>Warning:</strong> This stakeholder has active securities. 
+                  You must cancel all securities before deleting.
+                </p>
+              </div>
+            )}
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setSelectedStakeholder(null);
+                }}
+                disabled={deleteLoading}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleDelete}
+                disabled={deleteLoading}
+              >
+                {deleteLoading ? 'Deleting...' : 'Delete'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </PageLayout>
   );
 });

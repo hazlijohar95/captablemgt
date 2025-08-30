@@ -31,7 +31,13 @@
       "Bash(supabase login:*)",
       "Bash(npx tsc:*)",
       "Bash(git init:*)",
-      "Bash(git remote add:*)"
+      "Bash(git remote add:*)",
+      "Bash(git push:*)",
+      "Read(/Users/hazlijohar/Library/Application Support/CleanShot/media/media_iBjRa21P3K/**)",
+      "WebFetch(domain:superpower.com)",
+      "Read(/Users/hazlijohar/Library/Application Support/CleanShot/media/media_WuaCNigDtU/**)",
+      "Read(/Users/hazlijohar/Library/Application Support/CleanShot/media/media_SoNrZim5qM/**)",
+      "Read(/Users/hazlijohar/Library/Application Support/CleanShot/media/media_uUZElke6LB/**)"
     ],
     "deny": [],
     "ask": []

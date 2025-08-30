@@ -1,0 +1,47 @@
+MIT License
+
+Copyright (c) 2025 Cap Table Management Platform
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+## Additional Terms for Financial Software
+
+This software is designed for cap table management and financial calculations. 
+Users acknowledge that:
+
+1. **Professional Advice Required**: This software does not constitute financial, 
+   legal, or tax advice. Users should consult qualified professionals for 
+   financial and legal matters.
+
+2. **Calculation Accuracy**: While this software uses financial-grade precision 
+   calculations, users are responsible for validating results and ensuring 
+   compliance with applicable regulations.
+
+3. **Regulatory Compliance**: Users are responsible for ensuring compliance with 
+   all applicable securities laws, tax regulations, and accounting standards in 
+   their jurisdiction.
+
+4. **Data Responsibility**: Users are responsible for the accuracy of input data 
+   and for maintaining appropriate backups and security measures.
+
+5. **No Warranty**: The software is provided without warranty. The authors are 
+   not liable for any financial losses or damages arising from the use of this 
+   software.

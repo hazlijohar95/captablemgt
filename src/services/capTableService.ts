@@ -823,7 +823,7 @@ export class CapTableService {
   }
 
   /**
-   * Update stakeholder information
+   * Update stakeholder information with transaction safety
    */
   async updateStakeholder(stakeholderId: ULID, updates: {
     type?: 'FOUNDER' | 'INVESTOR' | 'EMPLOYEE' | 'ENTITY';
@@ -834,49 +834,165 @@ export class CapTableService {
       email: string;
       phone?: string | null;
     } | null;
+    csrfToken?: string;
   }): Promise<any> {
-    // Start a transaction-like approach
+    // Import transaction service for atomic operations
+    const { TransactionBuilder } = await import('./transactionService');
+    
+    // Get company ID for authorization
+    const current = await this.getStakeholderById(stakeholderId);
+    const { data: stakeholderData } = await (this.client as any)
+      .from('stakeholders')
+      .select('company_id')
+      .eq('id', stakeholderId)
+      .single();
+    
+    if (!stakeholderData) {
+      throw new Error('Stakeholder not found');
+    }
+    
+    const companyId = stakeholderData.company_id;
+    
+    // Build transaction for atomic update
+    const transaction = new TransactionBuilder(companyId, updates.csrfToken);
+    
+    // Add stakeholder update operation
+    const stakeholderUpdates: any = {};
+    if (updates.type !== undefined) stakeholderUpdates.type = updates.type;
+    if (updates.entity_name !== undefined) stakeholderUpdates.entity_name = updates.entity_name;
+    if (updates.tax_id !== undefined) stakeholderUpdates.tax_id = updates.tax_id;
+    
+    if (Object.keys(stakeholderUpdates).length > 0) {
+      transaction.addOperation(
+        'Update stakeholder',
+        async () => {
+          const { data, error } = await (this.client as any)
+            .from('stakeholders')
+            .update(stakeholderUpdates)
+            .eq('id', stakeholderId)
+            .select()
+            .single();
+          
+          if (error) throw new Error(error.message);
+          return data;
+        }
+      );
+    }
+    
+    // Add person update operation if needed
+    if (updates.person && current.people) {
+      transaction.addOperation(
+        'Update person',
+        async () => {
+          const { data, error } = await (this.client as any)
+            .from('people')
+            .update({
+              name: updates.person!.name,
+              email: updates.person!.email,
+              phone: updates.person!.phone || null,
+            })
+            .eq('id', current.people.id)
+            .select()
+            .single();
+          
+          if (error) throw new Error(error.message);
+          return data;
+        }
+      );
+    }
+    
+    // Execute transaction
+    const result = await transaction.execute();
+    
+    if (!result.success) {
+      throw new Error(`Failed to update stakeholder: ${result.error?.message}`);
+    }
+    
+    // Return updated stakeholder
+    return await this.getStakeholderById(stakeholderId);
+  }
+
+  /**
+   * Delete stakeholder with cascade handling
+   */
+  async deleteStakeholder(stakeholderId: ULID, csrfToken?: string): Promise<{ success: boolean; error?: Error }> {
     try {
-      // First get the current stakeholder
-      const current = await this.getStakeholderById(stakeholderId);
+      // Get stakeholder details for authorization
+      const { data: stakeholder } = await (this.client as any)
+        .from('stakeholders')
+        .select('company_id, person_id')
+        .eq('id', stakeholderId)
+        .single();
       
-      // Update stakeholder record
-      const stakeholderUpdates: any = {};
-      if (updates.type !== undefined) stakeholderUpdates.type = updates.type;
-      if (updates.entity_name !== undefined) stakeholderUpdates.entity_name = updates.entity_name;
-      if (updates.tax_id !== undefined) stakeholderUpdates.tax_id = updates.tax_id;
-
-      if (Object.keys(stakeholderUpdates).length > 0) {
-        const { error: stakeholderError } = await (this.client as any)
-          .from('stakeholders')
-          .update(stakeholderUpdates)
-          .eq('id', stakeholderId);
-
-        if (stakeholderError) {
-          throw new Error(`Failed to update stakeholder: ${stakeholderError.message}`);
-        }
+      if (!stakeholder) {
+        return { success: false, error: new Error('Stakeholder not found') };
       }
-
-      // Update person record if provided and person exists
-      if (updates.person && current.people) {
-        const { error: personError } = await (this.client as any)
-          .from('people')
-          .update({
-            name: updates.person.name,
-            email: updates.person.email,
-            phone: updates.person.phone || null,
-          })
-          .eq('id', current.people.id);
-
-        if (personError) {
-          throw new Error(`Failed to update person: ${personError.message}`);
-        }
+      
+      // Verify authorization
+      await AuthorizationService.validateCompanyAccess(stakeholder.company_id);
+      await AuthorizationService.verifyFinancialDataAccess(stakeholder.company_id, 'admin');
+      
+      // CSRF protection for deletion
+      if (csrfToken) {
+        await CSRFService.validateToken(csrfToken);
       }
-
-      // Return updated stakeholder
-      return await this.getStakeholderById(stakeholderId);
+      
+      // Import transaction service
+      const { TransactionBuilder } = await import('./transactionService');
+      const transaction = new TransactionBuilder(stakeholder.company_id, csrfToken);
+      
+      // Check for active securities
+      const { data: securities } = await (this.client as any)
+        .from('securities')
+        .select('id')
+        .eq('stakeholder_id', stakeholderId)
+        .is('cancelled_at', null);
+      
+      if (securities && securities.length > 0) {
+        return { 
+          success: false, 
+          error: new Error('Cannot delete stakeholder with active securities. Cancel securities first.') 
+        };
+      }
+      
+      // Build deletion transaction
+      transaction.addOperation(
+        'Delete stakeholder',
+        async () => {
+          const { error } = await (this.client as any)
+            .from('stakeholders')
+            .delete()
+            .eq('id', stakeholderId);
+          
+          if (error) throw new Error(error.message);
+        }
+      );
+      
+      // Log deletion for audit
+      transaction.addOperation(
+        'Log deletion',
+        async () => {
+          await AuthorizationService.logSecurityEvent(
+            stakeholder.company_id,
+            'DELETE_STAKEHOLDER',
+            'stakeholders',
+            { stakeholderId }
+          );
+        }
+      );
+      
+      // Execute transaction
+      const result = await transaction.execute();
+      
+      return { 
+        success: result.success, 
+        error: result.error ? new Error(result.error.message) : undefined 
+      };
     } catch (error) {
-      throw new Error(`Failed to update stakeholder: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error : new Error('Failed to delete stakeholder') 
+      };
     }
   }
 }

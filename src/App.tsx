@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from '@/features/auth/AuthContext';
 import { ProtectedRoute } from '@/features/auth/ProtectedRoute';
 import { OnboardingWrapper } from '@/features/onboarding/OnboardingWrapper';
@@ -16,11 +16,13 @@ import { WaterfallPage } from '@/pages/WaterfallPage';
 import { UserManagement } from '@/features/users/components/UserManagement';
 import { DocumentLibrary } from '@/features/documents/components/DocumentLibrary';
 import { ReportsPage } from '@/features/reports/components';
+import { ThemeProvider } from '@/components/ui';
 
 function App() {
   return (
-    <AuthProvider>
-      <BrowserRouter>
+    <ThemeProvider>
+      <AuthProvider>
+        <BrowserRouter>
         <Routes>
           <Route path="/" element={
             <ProtectedRoute>
@@ -46,8 +48,9 @@ function App() {
             <Route path="admin" element={<UserManagement />} />
           </Route>
         </Routes>
-      </BrowserRouter>
-    </AuthProvider>
+        </BrowserRouter>
+      </AuthProvider>
+    </ThemeProvider>
   );
 }
 

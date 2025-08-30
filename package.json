@@ -1,8 +1,9 @@
 {
-  "name": "captable",
+  "name": "captable-management-platform",
   "version": "1.0.0",
   "type": "module",
   "main": "index.js",
+  "description": "Enterprise-grade cap table management platform with financial-grade precision calculations, scenario modeling, and regulatory compliance features",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -14,15 +15,39 @@
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.{ts,tsx,css,md}\""
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
+  "keywords": [
+    "cap-table",
+    "equity-management", 
+    "financial-calculations",
+    "startup-tools",
+    "securities",
+    "vesting",
+    "409a-compliance",
+    "scenario-modeling",
+    "waterfall-analysis",
+    "react",
+    "typescript",
+    "self-hosted"
+  ],
+  "author": {
+    "name": "Cap Table Management Platform Contributors",
+    "url": "https://github.com/your-org/captable"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-org/captable.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-org/captable/issues"
+  },
+  "homepage": "https://github.com/your-org/captable#readme",
   "devDependencies": {
     "@testing-library/jest-dom": "^6.8.0",
     "@testing-library/react": "^16.3.0",
     "@testing-library/user-event": "^14.6.1",
     "@types/node": "^24.3.0",
+    "@types/papaparse": "^5.3.16",
     "@types/react": "^19.1.11",
     "@types/react-dom": "^19.1.8",
     "@typescript-eslint/eslint-plugin": "^8.41.0",
@@ -50,13 +75,21 @@
     "@supabase/auth-ui-shared": "^0.1.8",
     "@supabase/supabase-js": "^2.56.0",
     "@tanstack/react-query": "^5.85.5",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
     "decimal.js": "^10.6.0",
     "immer": "^10.1.1",
+    "jspdf": "^3.0.2",
+    "jspdf-autotable": "^5.0.2",
+    "papaparse": "^5.5.3",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
+    "react-dropzone": "^14.3.8",
     "react-router": "^7.8.2",
+    "react-router-dom": "^7.8.2",
     "ulid": "^3.0.1",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.8"
   }
 }
