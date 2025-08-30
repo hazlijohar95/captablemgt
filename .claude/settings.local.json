@@ -37,7 +37,10 @@
       "WebFetch(domain:superpower.com)",
       "Read(/Users/hazlijohar/Library/Application Support/CleanShot/media/media_WuaCNigDtU/**)",
       "Read(/Users/hazlijohar/Library/Application Support/CleanShot/media/media_SoNrZim5qM/**)",
-      "Read(/Users/hazlijohar/Library/Application Support/CleanShot/media/media_uUZElke6LB/**)"
+      "Read(/Users/hazlijohar/Library/Application Support/CleanShot/media/media_uUZElke6LB/**)",
+      "Bash(gh repo view:*)",
+      "Bash(chmod:*)",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []
