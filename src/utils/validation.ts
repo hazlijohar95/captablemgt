@@ -1,17 +1,30 @@
 import Decimal from 'decimal.js';
+import { z } from 'zod';
 
 /**
- * Financial validation utilities for cap table calculations
- * Ensures data integrity and prevents calculation errors
+ * Comprehensive validation utilities for cap table reporting system
+ * Ensures data integrity, security, and prevents calculation errors
  */
 
 export class ValidationError extends Error {
-  constructor(message: string, field?: string) {
+  constructor(message: string, public field?: string) {
     super(message);
     this.name = 'ValidationError';
-    this.field = field;
   }
-  field?: string;
+}
+
+export class AuthenticationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'AuthenticationError';
+  }
+}
+
+export class NotFoundError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'NotFoundError';
+  }
 }
 
 export interface ValidationResult {
@@ -126,6 +139,97 @@ export const financialRules = {
       throw new ValidationError(`${fieldName} is unreasonably low (< $0.01)`, fieldName);
     }
   }
+};
+
+// UUID validation
+export const isValidUUID = (uuid: string): boolean => {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(uuid);
+};
+
+// Date validation
+export const isValidDate = (dateString: string): boolean => {
+  const date = new Date(dateString);
+  return !isNaN(date.getTime()) && dateString.includes('-');
+};
+
+// Report generation request validation
+const GenerateReportRequestSchema = z.object({
+  company_id: z.string().uuid('Invalid company ID format'),
+  template_id: z.string().uuid('Invalid template ID format'),
+  as_of_date: z.string().refine(isValidDate, 'Invalid date format'),
+  parameters: z.object({
+    format: z.enum(['PDF', 'EXCEL', 'CSV', 'JSON', 'HTML']).optional(),
+    include_waterfall: z.boolean().optional(),
+    include_dilution_analysis: z.boolean().optional(),
+    board_meeting_date: z.string().refine(isValidDate, 'Invalid board meeting date').optional(),
+    custom_notes: z.string().max(1000, 'Custom notes too long').optional(),
+    output_format: z.enum(['PDF', 'EXCEL', 'CSV', 'JSON', 'HTML']).optional(),
+    compression_enabled: z.boolean().optional(),
+    watermark_enabled: z.boolean().optional()
+  }).optional()
+});
+
+export const validateGenerateReportRequest = (data: any) => {
+  try {
+    return GenerateReportRequestSchema.parse(data);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      const fieldErrors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+      throw new ValidationError(`Validation failed: ${fieldErrors}`);
+    }
+    throw error;
+  }
+};
+
+// User authentication validation
+export const validateUserId = (userId: string): void => {
+  if (!userId || typeof userId !== 'string') {
+    throw new AuthenticationError('User ID is required');
+  }
+  
+  if (!isValidUUID(userId)) {
+    throw new AuthenticationError('Invalid user ID format');
+  }
+};
+
+// Company access validation
+export const validateCompanyAccess = (companyId: string, userId: string): void => {
+  validateUserId(userId);
+  
+  if (!companyId || typeof companyId !== 'string') {
+    throw new ValidationError('Company ID is required');
+  }
+  
+  if (!isValidUUID(companyId)) {
+    throw new ValidationError('Invalid company ID format');
+  }
+};
+
+// Sanitize sensitive data
+export const sanitizeReportData = <T extends Record<string, any>>(
+  data: T, 
+  userRole: string
+): Partial<T> => {
+  const sanitized = { ...data };
+  
+  // Remove sensitive fields for non-admin users
+  if (userRole !== 'ADMIN') {
+    delete sanitized.file_hash;
+    delete sanitized.generation_parameters;
+    delete sanitized.audit_trail;
+  }
+  
+  // Remove internal system fields
+  delete sanitized.created_by;
+  delete sanitized.updated_by;
+  
+  return sanitized;
+};
+
+// SQL injection prevention
+export const sanitizeSqlInput = (input: string): string => {
+  return input.replace(/['";\\\x00-\x1f]/g, '').trim();
 };
 
 /**
