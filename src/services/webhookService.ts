@@ -5,7 +5,7 @@
 
 import { z } from 'zod';
 import crypto from 'crypto';
-import { BaseService } from './baseService';
+import { BaseService } from './base/BaseService';
 import {
   WebhookEndpoint,
   WebhookEndpointDetails,

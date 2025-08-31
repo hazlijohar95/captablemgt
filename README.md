@@ -147,11 +147,13 @@ For managed hosting options and professional services, contact our team.
 
 ## 📚 Documentation
 
-- **[API Reference](./docs/api-reference.md)** - Complete API documentation
-- **[Financial Calculations](./docs/financial-calculations.md)** - Mathematical models and formulas
-- **[Deployment Guide](./docs/deployment.md)** - Self-hosting instructions
-- **[Contributing](./CONTRIBUTING.md)** - Development and contribution guidelines
-- **[Security](./SECURITY.md)** - Security model and vulnerability reporting
+- **[Complete Documentation](./docs/README.md)** - Comprehensive documentation index
+- **[Quick Start Guide](./docs/README.md#quick-start)** - Get running in 5 minutes
+- **[Development Setup](./docs/development/setup-guide.md)** - Development environment
+- **[Deployment Guide](./docs/DEPLOYMENT.md)** - Production deployment
+- **[Financial Calculations](./docs/financial-calculations.md)** - Mathematical models
+- **[Contributing](./CONTRIBUTING.md)** - Development guidelines
+- **[Security Policy](./SECURITY.md)** - Security model and reporting
 
 ## 🤝 Contributing
 
@@ -167,18 +169,22 @@ We welcome contributions from the community! Please see our [Contributing Guide]
 # Install dependencies
 npm install
 
+# Set up environment
+cp .env.example .env.local
+# Edit .env.local with your configuration
+
+# Set up database
+npm run db:setup
+npm run db:migrate
+
 # Run tests
 npm run test
 
 # Start development server
 npm run dev
-
-# Type checking
-npm run typecheck
-
-# Code formatting
-npm run format
 ```
+
+**For detailed setup instructions, see the [Documentation](./docs/README.md).**
 
 ## 📊 Performance
 

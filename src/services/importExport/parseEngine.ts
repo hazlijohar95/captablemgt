@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import Papa from 'papaparse';
 import { createClient } from '@supabase/supabase-js';
 
@@ -212,28 +212,48 @@ export class IntelligentParseEngine {
   }
 
   /**
-   * Parse Excel file
+   * Parse Excel file using ExcelJS (secure alternative to xlsx)
    */
   private async parseExcel(
     file: File,
     options: IParseOptions
   ): Promise<{ data: any[][], headers: string[] }> {
     const buffer = await file.arrayBuffer();
-    const workbook = XLSX.read(buffer);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
     
-    const worksheetName = options.worksheet || workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[worksheetName];
+    const worksheetName = options.worksheet || workbook.worksheets[0]?.name;
+    const worksheet = workbook.getWorksheet(worksheetName || 1);
     
     if (!worksheet) {
       throw new Error(`Worksheet "${worksheetName}" not found`);
     }
 
     // Convert to array of arrays
-    const data = XLSX.utils.sheet_to_json(worksheet, {
-      header: 1,
-      raw: false,
-      dateNF: 'yyyy-mm-dd'
-    }) as any[][];
+    const data: any[][] = [];
+    
+    worksheet.eachRow((row, rowNumber) => {
+      const rowData: any[] = [];
+      row.eachCell((cell, colNumber) => {
+        let value = cell.value;
+        
+        // Handle date cells
+        if (cell.type === ExcelJS.ValueType.Date) {
+          value = (cell.value as Date).toISOString().split('T')[0];
+        }
+        // Handle formula cells
+        else if (cell.type === ExcelJS.ValueType.Formula && cell.result) {
+          value = cell.result;
+        }
+        // Handle other cell types
+        else if (value && typeof value === 'object' && 'richText' in value) {
+          value = (value as any).richText.map((r: any) => r.text).join('');
+        }
+        
+        rowData[colNumber - 1] = value;
+      });
+      data.push(rowData);
+    });
 
     return { data, headers: [] };
   }

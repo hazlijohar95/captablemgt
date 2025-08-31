@@ -1,13 +1,14 @@
 import { supabase } from './supabase';
 import { AuthorizationService } from './authorizationService';
 import { CSRFService } from './csrfService';
+import { logger } from './loggingService';
 import { ulid } from 'ulid';
 
 export class TransactionError extends Error {
   constructor(
     message: string,
     public readonly code: string,
-    public readonly details?: any
+    public readonly details?: Record<string, unknown>
   ) {
     super(message);
     this.name = 'TransactionError';
@@ -48,7 +49,7 @@ export class TransactionService {
     csrfToken?: string
   ): Promise<ITransactionResult<T[]>> {
     const transactionId = ulid();
-    const executedOperations: Array<{ operation: ITransactionOperation; result: any }> = [];
+    const executedOperations: Array<{ operation: ITransactionOperation; result: unknown }> = [];
     
     try {
       // Verify authorization
@@ -154,7 +155,7 @@ export class TransactionService {
    * Rollback executed operations in reverse order
    */
   private static async rollbackOperations(
-    executedOperations: Array<{ operation: ITransactionOperation; result: any }>,
+    executedOperations: Array<{ operation: ITransactionOperation; result: unknown }>,
     companyId: string,
     transactionId: string
   ): Promise<void> {
@@ -204,7 +205,7 @@ export class TransactionService {
     companyId: string,
     transactionId: string,
     event: string,
-    details: any
+    details: Record<string, unknown>
   ): Promise<void> {
     try {
       // TODO: Uncomment when transactions table supports atomic operations
@@ -222,11 +223,11 @@ export class TransactionService {
       //   }
       // });
       
-      // Log to console for now
-      console.log(`Transaction Event [${companyId}:${transactionId}]:`, event, details);
+      // Use structured logging
+      logger.transaction(companyId, transactionId, event, details);
     } catch (error) {
       // Log failure but don't throw - audit logging should not break transactions
-      console.error('Failed to log transaction event:', error);
+      logger.error('Failed to log transaction event', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -274,7 +275,7 @@ export class TransactionService {
         //   payload: { executed: true }
         // });
         
-        console.log(`Idempotent operation executed: ${operationId}`);
+        logger.debug('Idempotent operation executed', { operationId });
         
         return result;
       }

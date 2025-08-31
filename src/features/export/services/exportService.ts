@@ -1,10 +1,33 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import { format } from 'date-fns';
 import { ICapTableResponse } from '@/types';
 import { capTableService } from '@/services/capTableService';
 import { AuthorizationService } from '@/services/authorizationService';
+
+interface ICompanyInfo {
+  id: string;
+  name: string;
+  incorporationState?: string;
+  incorporationDate?: string;
+}
+
+interface IStakeholderInfo {
+  id: string;
+  people?: {
+    name: string;
+    email?: string;
+  };
+  entity_name?: string;
+  type: string;
+}
+
+interface ICertificateOptions {
+  template?: 'standard' | 'formal' | 'modern';
+  includeSignature?: boolean;
+  watermark?: string;
+}
 
 export interface IExportOptions {
   format: 'pdf' | 'excel' | 'csv';
@@ -93,7 +116,7 @@ export class ExportService {
    */
   private static async exportToPDF(
     capTableData: ICapTableResponse,
-    company: any,
+    company: ICompanyInfo,
     options: IExportOptions,
     fileName: string
   ): Promise<string> {
@@ -197,13 +220,15 @@ export class ExportService {
    */
   private static async exportToExcel(
     capTableData: ICapTableResponse,
-    company: any,
+    company: ICompanyInfo,
     options: IExportOptions,
     fileName: string
   ): Promise<string> {
-    const workbook = XLSX.utils.book_new();
+    const workbook = new ExcelJS.Workbook();
 
     // Summary sheet
+    const summaryWorksheet = workbook.addWorksheet('Summary');
+    
     const summaryData = [
       ['Company', company.name],
       ['As of Date', format(new Date(capTableData.asOf), 'yyyy-MM-dd')],
@@ -223,77 +248,104 @@ export class ExportService {
       ]
     ];
 
-    const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
-    XLSX.utils.book_append_sheet(workbook, summarySheet, 'Summary');
+    summaryData.forEach(row => {
+      summaryWorksheet.addRow(row);
+    });
+
+    // Style summary headers
+    summaryWorksheet.getCell('A5').font = { bold: true };
+    summaryWorksheet.getColumn('A').width = 25;
+    summaryWorksheet.getColumn('B').width = 20;
 
     // Stakeholders sheet
-    const stakeholdersData = [
-      [
-        'Stakeholder Name',
-        'Ownership Percentage',
-        'Total Shares',
-        'Common Stock',
-        'Preferred Stock', 
-        'Options',
-        'RSUs',
-        'Warrants',
-        'SAFEs',
-        'Notes'
-      ]
-    ];
-
-    capTableData.stakeholders.forEach(stakeholder => {
-      stakeholdersData.push([
-        stakeholder.name,
-        (stakeholder.ownershipPct / 100).toString(), // Excel percentage format
-        stakeholder.asConverted.toString(),
-        (stakeholder.securities.common || 0).toString(),
-        (stakeholder.securities.preferred || 0).toString(),
-        (stakeholder.securities.options || 0).toString(),
-        (stakeholder.securities.rsus || 0).toString(),
-        (stakeholder.securities.warrants || 0).toString(),
-        (stakeholder.securities.safes || 0).toString(),
-        (stakeholder.securities.notes || 0).toString()
-      ]);
-    });
-
-    const stakeholdersSheet = XLSX.utils.aoa_to_sheet(stakeholdersData);
+    const stakeholdersWorksheet = workbook.addWorksheet('Stakeholders');
     
-    // Format ownership percentage column
-    const ownershipRange = XLSX.utils.encode_range({ 
-      s: { c: 1, r: 1 }, 
-      e: { c: 1, r: stakeholdersData.length - 1 } 
+    const stakeholdersHeaders = [
+      'Stakeholder Name',
+      'Ownership Percentage',
+      'Total Shares',
+      'Common Stock',
+      'Preferred Stock', 
+      'Options',
+      'RSUs',
+      'Warrants',
+      'SAFEs',
+      'Notes'
+    ];
+    
+    stakeholdersWorksheet.addRow(stakeholdersHeaders);
+    
+    // Style headers
+    const headerRow = stakeholdersWorksheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true };
+      cell.fill = {
+        type: 'pattern',
+        pattern: 'solid',
+        fgColor: { argb: '2980B9' }
+      };
+      cell.font = { ...cell.font, color: { argb: 'FFFFFF' } };
     });
-    stakeholdersSheet['!format'] = stakeholdersSheet['!format'] || {};
-    stakeholdersSheet['!format'][ownershipRange] = '0.00%';
 
-    XLSX.utils.book_append_sheet(workbook, stakeholdersSheet, 'Stakeholders');
+    capTableData.stakeholders.forEach((stakeholder, index) => {
+      const rowData = [
+        stakeholder.name,
+        stakeholder.ownershipPct / 100, // Excel percentage format
+        stakeholder.asConverted,
+        stakeholder.securities.common || 0,
+        stakeholder.securities.preferred || 0,
+        stakeholder.securities.options || 0,
+        stakeholder.securities.rsus || 0,
+        stakeholder.securities.warrants || 0,
+        stakeholder.securities.safes || 0,
+        stakeholder.securities.notes || 0
+      ];
+      
+      stakeholdersWorksheet.addRow(rowData);
+      
+      // Format ownership percentage
+      const percentageCell = stakeholdersWorksheet.getCell(index + 2, 2);
+      percentageCell.numFmt = '0.00%';
+    });
+    
+    // Set column widths
+    stakeholdersWorksheet.getColumn('A').width = 30;
+    stakeholdersWorksheet.getColumn('B').width = 15;
+    stakeholdersWorksheet.columns.slice(2).forEach(col => col.width = 12);
 
     // Detailed breakdown sheet (if requested)
     if (options.includeDetails) {
-      const detailsData = [
-        [
-          'Stakeholder Name',
-          'Security Type',
-          'Share Class',
-          'Quantity',
-          'Strike Price',
-          'Grant Date',
-          'Vesting Schedule',
-          'Status'
-        ]
+      const detailsWorksheet = workbook.addWorksheet('Details');
+      const detailsHeaders = [
+        'Stakeholder Name',
+        'Security Type',
+        'Share Class',
+        'Quantity',
+        'Strike Price',
+        'Grant Date',
+        'Vesting Schedule',
+        'Status'
       ];
-
-      // This would require additional data from securities table
-      // For now, we'll create a placeholder
-      detailsData.push(['Detailed security information requires additional implementation']);
-
-      const detailsSheet = XLSX.utils.aoa_to_sheet(detailsData);
-      XLSX.utils.book_append_sheet(workbook, detailsSheet, 'Details');
+      
+      detailsWorksheet.addRow(detailsHeaders);
+      detailsWorksheet.addRow(['Detailed security information requires additional implementation']);
+      
+      // Style headers
+      const detailsHeaderRow = detailsWorksheet.getRow(1);
+      detailsHeaderRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: '2980B9' }
+        };
+        cell.font = { ...cell.font, color: { argb: 'FFFFFF' } };
+      });
     }
 
     // Compliance sheet
     if (options.confidential) {
+      const complianceWorksheet = workbook.addWorksheet('Compliance');
       const complianceData = [
         ['CONFIDENTIALITY NOTICE'],
         [''],
@@ -304,13 +356,20 @@ export class ExportService {
         ['Export Date:', format(new Date(), 'yyyy-MM-dd HH:mm:ss')],
         ['Company:', company.name]
       ];
-
-      const complianceSheet = XLSX.utils.aoa_to_sheet(complianceData);
-      XLSX.utils.book_append_sheet(workbook, complianceSheet, 'Compliance');
+      
+      complianceData.forEach(row => {
+        complianceWorksheet.addRow(row);
+      });
+      
+      // Style confidentiality notice
+      const noticeCell = complianceWorksheet.getCell('A1');
+      noticeCell.font = { bold: true, size: 16, color: { argb: 'C0392B' } };
+      
+      complianceWorksheet.getColumn('A').width = 50;
     }
 
     // Generate and download
-    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    const excelBuffer = await workbook.xlsx.writeBuffer();
     const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     const downloadUrl = URL.createObjectURL(blob);
 
@@ -329,7 +388,7 @@ export class ExportService {
    */
   private static async exportToCSV(
     capTableData: ICapTableResponse,
-    company: any,
+    company: ICompanyInfo,
     _options: IExportOptions,
     fileName: string
   ): Promise<string> {
@@ -392,11 +451,7 @@ export class ExportService {
   static async exportOwnershipCertificates(
     companyId: string,
     stakeholderIds: string[],
-    options: { 
-      template?: 'standard' | 'formal' | 'modern';
-      includeSignature?: boolean;
-      watermark?: string;
-    } = {}
+    options: ICertificateOptions = {}
   ): Promise<IExportResult> {
     try {
       await AuthorizationService.validateCompanyAccess(companyId);
@@ -441,7 +496,7 @@ export class ExportService {
   }
 
   // Private helper methods
-  private static async getCompanyInfo(companyId: string): Promise<any> {
+  private static async getCompanyInfo(companyId: string): Promise<ICompanyInfo> {
     // This would fetch from companies table
     // For now, return mock data
     return {
@@ -454,9 +509,9 @@ export class ExportService {
 
   private static async generateCertificatePage(
     doc: jsPDF,
-    company: any,
-    stakeholder: any,
-    options: any
+    company: ICompanyInfo,
+    stakeholder: IStakeholderInfo,
+    options: ICertificateOptions
   ): Promise<void> {
     // Certificate header
     doc.setFontSize(24);

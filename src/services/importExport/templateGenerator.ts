@@ -1,4 +1,4 @@
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import Papa from 'papaparse';
 import { createClient } from '@supabase/supabase-js';
 
@@ -617,7 +617,7 @@ export class TemplateGenerator {
     if (template.formatting.fileFormat === 'csv') {
       return this.generateCSV(data, template, filename, metadata);
     } else {
-      return this.generateExcel(data, template, filename, metadata);
+      return await this.generateExcel(data, template, filename, metadata);
     }
   }
 
@@ -657,47 +657,106 @@ export class TemplateGenerator {
   }
 
   /**
-   * Generate Excel file
+   * Generate Excel file using ExcelJS (secure alternative to xlsx)
    */
-  private generateExcel(
+  private async generateExcel(
     data: Record<string, any>[],
     template: IExportTemplate,
     filename: string,
     metadata: any
-  ): { data: Blob; filename: string; contentType: string } {
-    const workbook = XLSX.utils.book_new();
+  ): Promise<{ data: Blob; filename: string; contentType: string }> {
+    const workbook = new ExcelJS.Workbook();
     
     // Create main data worksheet
-    const worksheet = XLSX.utils.json_to_sheet(data, {
-      header: template.fields.map(f => f.displayName)
+    const worksheet = workbook.addWorksheet('Data');
+    
+    // Add headers
+    const headers = template.fields.map(f => f.displayName);
+    worksheet.addRow(headers);
+    
+    // Style headers if styling is configured
+    if (template.formatting.styling?.headerStyle) {
+      const headerRow = worksheet.getRow(1);
+      headerRow.eachCell((cell) => {
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: template.formatting.styling!.headerStyle.backgroundColor.replace('#', '') }
+        };
+        cell.font = {
+          color: { argb: template.formatting.styling!.headerStyle.fontColor.replace('#', '') },
+          size: template.formatting.styling!.headerStyle.fontSize,
+          bold: template.formatting.styling!.headerStyle.bold
+        };
+      });
+    }
+    
+    // Add data rows
+    data.forEach((row, index) => {
+      const rowData = headers.map(header => row[header] || '');
+      worksheet.addRow(rowData);
+      
+      // Apply alternating row styling if configured
+      if (template.formatting.styling?.dataStyle.alternateRows && index % 2 === 1) {
+        const excelRow = worksheet.getRow(index + 2); // +2 because row 1 is headers
+        excelRow.eachCell((cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: 'F2F2F2' }
+          };
+        });
+      }
     });
-
+    
     // Apply column widths
-    const colWidths = template.fields.map(field => ({
-      wch: field.width || 15
-    }));
-    worksheet['!cols'] = colWidths;
+    template.fields.forEach((field, index) => {
+      const column = worksheet.getColumn(index + 1);
+      column.width = field.width || 15;
+    });
+    
+    // Add borders if configured
+    if (template.formatting.styling?.dataStyle.borderStyle !== 'none') {
+      const borderStyle = template.formatting.styling?.dataStyle.borderStyle || 'thin';
+      const range = worksheet.getCell(1, 1).address + ':' + worksheet.getCell(data.length + 1, headers.length).address;
+      worksheet.getCell(range).border = {
+        top: { style: borderStyle },
+        left: { style: borderStyle },
+        bottom: { style: borderStyle },
+        right: { style: borderStyle }
+      };
+    }
 
     // Add metadata worksheet if requested
     if (metadata) {
-      const metadataSheet = XLSX.utils.json_to_sheet([
-        { Property: 'Export Template', Value: template.name },
-        { Property: 'Generated At', Value: metadata.exportedAt },
-        { Property: 'Record Count', Value: metadata.recordCount },
-        { Property: 'Company ID', Value: metadata.companyId },
-        { Property: 'Target Schema', Value: template.targetSchema }
-      ]);
+      const metadataWorksheet = workbook.addWorksheet('Export Info');
+      const metadataData = [
+        ['Property', 'Value'],
+        ['Export Template', template.name],
+        ['Generated At', metadata.exportedAt],
+        ['Record Count', metadata.recordCount],
+        ['Company ID', metadata.companyId],
+        ['Target Schema', template.targetSchema]
+      ];
       
-      XLSX.utils.book_append_sheet(workbook, metadataSheet, 'Export Info');
+      metadataData.forEach(row => {
+        metadataWorksheet.addRow(row);
+      });
+      
+      // Style metadata headers
+      const metadataHeaderRow = metadataWorksheet.getRow(1);
+      metadataHeaderRow.eachCell((cell) => {
+        cell.font = { bold: true };
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'CCCCCC' }
+        };
+      });
     }
 
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data');
-
     // Generate binary data
-    const excelBuffer = XLSX.write(workbook, { 
-      bookType: 'xlsx', 
-      type: 'array' 
-    });
+    const excelBuffer = await workbook.xlsx.writeBuffer();
 
     return {
       data: new Blob([excelBuffer], { 

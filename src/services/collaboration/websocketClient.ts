@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { IWebSocketMessage, ISessionParticipant, ICursorPosition, ISelectionRange, IContentChange } from './websocketServer';
+import { logger } from '../loggingService';
 
 export interface ICollaborationClient {
   connect(sessionId: string, userId: string): Promise<void>;
@@ -77,7 +78,7 @@ export class WebSocketCollaborationClient implements ICollaborationClient {
       this.ws = new WebSocket(wsUrl.toString());
 
       this.ws.onopen = () => {
-        console.log('WebSocket connected to collaboration session');
+        logger.info('WebSocket connected to collaboration session', { sessionId, userId });
         this.reconnectAttempts = 0;
         this.onConnectionStateChange?.('connected');
         this.startHeartbeat();
@@ -89,7 +90,7 @@ export class WebSocketCollaborationClient implements ICollaborationClient {
       };
 
       this.ws.onclose = (event) => {
-        console.log('WebSocket connection closed:', event.code, event.reason);
+        logger.info('WebSocket connection closed', { code: event.code, reason: event.reason, sessionId });
         this.onConnectionStateChange?.('disconnected');
         this.stopHeartbeat();
         
@@ -162,7 +163,12 @@ export class WebSocketCollaborationClient implements ICollaborationClient {
     const delay = Math.pow(2, this.reconnectAttempts) * 1000; // Exponential backoff
     this.reconnectAttempts++;
 
-    console.log(`Attempting to reconnect in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    logger.info('Attempting WebSocket reconnect', { 
+      delay, 
+      attempt: this.reconnectAttempts, 
+      maxAttempts: this.maxReconnectAttempts,
+      sessionId: this.sessionId 
+    });
     
     this.reconnectTimeout = setTimeout(async () => {
       try {

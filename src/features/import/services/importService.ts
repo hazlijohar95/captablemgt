@@ -1,5 +1,5 @@
 import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 import {
   IImportRow,
   IStakeholderImportRow,
@@ -524,23 +524,58 @@ export class ImportService {
   }
 
   private static async parseExcel(file: File, _options: IImportOptions): Promise<IImportRow[]> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const data = new Uint8Array(e.target?.result as ArrayBuffer);
-          const workbook = XLSX.read(data, { type: 'array' });
-          const sheetName = workbook.SheetNames[0];
-          const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-          resolve(jsonData as IImportRow[]);
-        } catch (error) {
-          reject(new Error(`Excel parsing error: ${error instanceof Error ? error.message : 'Unknown error'}`));
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+      
+      const worksheet = workbook.worksheets[0];
+      if (!worksheet) {
+        throw new Error('No worksheets found in Excel file');
+      }
+
+      const jsonData: IImportRow[] = [];
+      const headers: string[] = [];
+      
+      // Get headers from first row
+      const firstRow = worksheet.getRow(1);
+      firstRow.eachCell((cell, colNumber) => {
+        headers[colNumber - 1] = String(cell.value || '').trim();
+      });
+      
+      // Process data rows
+      worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber === 1) return; // Skip header row
+        
+        const rowData: IImportRow = {};
+        row.eachCell((cell, colNumber) => {
+          const header = headers[colNumber - 1];
+          if (header) {
+            let value = cell.value;
+            
+            // Handle different cell types
+            if (cell.type === ExcelJS.ValueType.Date) {
+              value = (cell.value as Date).toISOString().split('T')[0];
+            } else if (cell.type === ExcelJS.ValueType.Formula && cell.result) {
+              value = cell.result;
+            } else if (value && typeof value === 'object' && 'richText' in value) {
+              value = (value as any).richText.map((r: any) => r.text).join('');
+            }
+            
+            rowData[header] = value || '';
+          }
+        });
+        
+        // Only add rows that have at least one non-empty value
+        if (Object.values(rowData).some(val => val !== '')) {
+          jsonData.push(rowData);
         }
-      };
-      reader.onerror = () => reject(new Error('Failed to read Excel file'));
-      reader.readAsArrayBuffer(file);
-    });
+      });
+      
+      return jsonData;
+    } catch (error) {
+      throw new Error(`Excel parsing error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   private static async parseJSON(file: File): Promise<IImportRow[]> {

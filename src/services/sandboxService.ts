@@ -5,6 +5,7 @@
 
 import { BaseService } from './baseService';
 import { SandboxInfo, SampleApiRequest, ApiKey } from '@/types/api';
+import { logger } from './loggingService';
 
 interface SandboxCompany {
   id: string;
@@ -74,11 +75,11 @@ class SandboxService extends BaseService {
       );
 
       if (parseInt(existingData.rows[0].count) > 0) {
-        console.log('Sandbox environment already initialized for company:', companyId);
+        logger.debug('Sandbox environment already initialized', { companyId });
         return;
       }
 
-      console.log('Initializing sandbox environment for company:', companyId);
+      logger.info('Initializing sandbox environment', { companyId });
 
       // Create sample stakeholders
       const sampleStakeholders = await this.createSampleStakeholders(client, companyId);
@@ -92,7 +93,7 @@ class SandboxService extends BaseService {
       // Create sample valuation
       await this.createSampleValuation(client, companyId);
 
-      console.log('Sandbox environment initialized successfully');
+      logger.info('Sandbox environment initialized successfully', { companyId });
     });
   }
 
@@ -603,7 +604,7 @@ class SandboxService extends BaseService {
     const deletedCount = parseInt(result.rows[0]?.deleted_count || '0');
     
     if (deletedCount > 0) {
-      console.log(`Cleaned up ${deletedCount} expired sandbox companies`);
+      logger.info('Cleaned up expired sandbox companies', { deletedCount });
     }
 
     return deletedCount;

@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { createClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
 import { z } from 'zod';
+import { logger } from '../loggingService';
 
 export interface IWebSocketMessage {
   type: 'join_session' | 'leave_session' | 'cursor_move' | 'selection_change' | 
@@ -149,7 +150,7 @@ export class WebSocketCollaborationServer {
           this.cleanupInactiveSessions();
         }, 30000); // Every 30 seconds
 
-        console.log(`WebSocket collaboration server started on port ${this.port}`);
+        logger.info('WebSocket collaboration server started', { port: this.port });
         resolve();
       } catch (error) {
         reject(error);
@@ -743,7 +744,7 @@ export class WebSocketCollaborationServer {
           })
           .eq('id', sessionId)
           .then(() => {
-            console.log(`Session ${sessionId} marked as inactive due to inactivity`);
+            logger.debug('Session marked as inactive due to inactivity', { sessionId });
           })
           .catch(console.error);
 
@@ -765,7 +766,7 @@ export class WebSocketCollaborationServer {
     return new Promise((resolve) => {
       if (this.wss) {
         this.wss.close(() => {
-          console.log('WebSocket collaboration server stopped');
+          logger.info('WebSocket collaboration server stopped');
           resolve();
         });
       } else {
