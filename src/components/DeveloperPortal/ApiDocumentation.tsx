@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
 import { 
   Book, 
-  Code, 
   Copy, 
   CheckCircle, 
   ExternalLink,
-  Play,
   FileText,
   Zap,
   Shield,

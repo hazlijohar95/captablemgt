@@ -10,11 +10,10 @@ import {
   Clock,
   BarChart3
 } from 'lucide-react';
-import { apiKeyService } from '@/services/apiKeyService';
-import { webhookService } from '@/services/webhookService';
+// Services will be used for data fetching in the future
 import { DeveloperPortalStats, IntegrationHealth } from '@/types/api';
 
-export const DeveloperPortalDashboard: React.FC = () => {
+const DeveloperPortalDashboard: React.FC = () => {
   const {
     data: stats,
     isLoading: statsLoading
@@ -347,6 +346,8 @@ export const DeveloperPortalDashboard: React.FC = () => {
     </div>
   );
 };
+
+export default DeveloperPortalDashboard;
 
 // Mock functions - replace with actual service calls
 async function getDeveloperPortalStats(): Promise<DeveloperPortalStats> {

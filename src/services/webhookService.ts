@@ -6,6 +6,7 @@
 import { z } from 'zod';
 import crypto from 'crypto';
 import { BaseService } from './base/BaseService';
+import { supabase } from './supabase';
 import {
   WebhookEndpoint,
   WebhookEndpointDetails,
@@ -15,7 +16,6 @@ import {
   TestWebhookRequest,
   TestWebhookResponse,
   WebhookEvent,
-  WebhookDeliveryStatus,
   WebhookRetryPolicy,
   WebhookDeliveryStats,
   WebhookHealthStatus,
@@ -28,7 +28,7 @@ const createWebhookSchema = z.object({
   description: z.string().max(500).optional(),
   url: z.string().url(),
   events: z.array(z.string()).min(1),
-  event_filters: z.record(z.any()).optional(),
+  event_filters: z.record(z.string(), z.any()).optional(),
   secret: z.string().min(8).optional(),
   retry_policy: z.object({
     max_retries: z.number().min(0).max(10).optional(),
@@ -36,9 +36,9 @@ const createWebhookSchema = z.object({
     retry_on_statuses: z.array(z.number().min(400).max(599)).optional()
   }).optional(),
   timeout_seconds: z.number().min(1).max(300).optional(),
-  custom_headers: z.record(z.string()).optional(),
+  custom_headers: z.record(z.string(), z.string()).optional(),
   auth_type: z.enum(['signature', 'bearer', 'basic', 'none']).optional(),
-  auth_config: z.record(z.any()).optional()
+  auth_config: z.record(z.string(), z.any()).optional()
 });
 
 const updateWebhookSchema = z.object({
@@ -46,7 +46,7 @@ const updateWebhookSchema = z.object({
   description: z.string().max(500).optional(),
   url: z.string().url().optional(),
   events: z.array(z.string()).min(1).optional(),
-  event_filters: z.record(z.any()).optional(),
+  event_filters: z.record(z.string(), z.any()).optional(),
   active: z.boolean().optional(),
   retry_policy: z.object({
     max_retries: z.number().min(0).max(10).optional(),
@@ -54,9 +54,9 @@ const updateWebhookSchema = z.object({
     retry_on_statuses: z.array(z.number().min(400).max(599)).optional()
   }).optional(),
   timeout_seconds: z.number().min(1).max(300).optional(),
-  custom_headers: z.record(z.string()).optional(),
+  custom_headers: z.record(z.string(), z.string()).optional(),
   auth_type: z.enum(['signature', 'bearer', 'basic', 'none']).optional(),
-  auth_config: z.record(z.any()).optional()
+  auth_config: z.record(z.string(), z.any()).optional()
 });
 
 class WebhookService extends BaseService {
@@ -76,17 +76,22 @@ class WebhookService extends BaseService {
   ): Promise<WebhookEndpoint> {
     const validatedRequest = createWebhookSchema.parse(request);
 
-    return this.withTransaction(async (client) => {
+    return this.executeWithTransaction(async () => {
       // Validate events exist
       await this.validateEvents(validatedRequest.events);
 
       // Check for duplicate names within company
-      const existingWebhook = await client.query(
-        'SELECT id FROM webhook_endpoints WHERE company_id = $1 AND name = $2',
-        [companyId, validatedRequest.name]
-      );
+      const { data: existingWebhook, error: existingError } = await supabase
+        .from('webhook_endpoints')
+        .select('id')
+        .eq('company_id', companyId)
+        .eq('name', validatedRequest.name) as { data: Array<{ id: string }> | null, error: any };
 
-      if (existingWebhook.rows.length > 0) {
+      if (existingError) {
+        throw new Error(`Failed to check for existing webhook: ${existingError.message}`);
+      }
+
+      if (existingWebhook && existingWebhook.length > 0) {
         throw new Error(`Webhook with name '${validatedRequest.name}' already exists`);
       }
 
@@ -100,43 +105,37 @@ class WebhookService extends BaseService {
       };
 
       // Insert webhook endpoint
-      const result = await client.query(`
-        INSERT INTO webhook_endpoints (
-          company_id, api_key_id, name, description, url, secret, 
-          events, event_filters, retry_policy, timeout_seconds,
-          custom_headers, auth_type, auth_config
-        ) VALUES (
-          $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13
-        ) RETURNING *
-      `, [
-        companyId,
-        apiKeyId,
-        validatedRequest.name,
-        validatedRequest.description,
-        validatedRequest.url,
-        secret,
-        validatedRequest.events,
-        JSON.stringify(validatedRequest.event_filters || {}),
-        JSON.stringify(retryPolicy),
-        validatedRequest.timeout_seconds || 30,
-        JSON.stringify(validatedRequest.custom_headers || {}),
-        validatedRequest.auth_type || 'signature',
-        JSON.stringify(validatedRequest.auth_config || {})
-      ]);
+      const { data: result, error: insertError } = await supabase
+        .from('webhook_endpoints')
+        .insert({
+          company_id: companyId,
+          api_key_id: apiKeyId,
+          name: validatedRequest.name,
+          description: validatedRequest.description,
+          url: validatedRequest.url,
+          secret: secret,
+          events: validatedRequest.events,
+          event_filters: validatedRequest.event_filters || {},
+          retry_policy: retryPolicy,
+          timeout_seconds: validatedRequest.timeout_seconds || 30,
+          custom_headers: validatedRequest.custom_headers || {},
+          auth_type: validatedRequest.auth_type || 'signature',
+          auth_config: validatedRequest.auth_config || {}
+        })
+        .select()
+        .single() as { data: any | null, error: any };
 
-      const webhook = this.mapWebhookFromDb(result.rows[0]);
+      if (insertError) {
+        throw new Error(`Failed to create webhook: ${insertError.message}`);
+      }
+
+      const webhook = this.mapWebhookFromDb(result);
 
       // Log webhook creation
-      await this.logAuditEvent(client, {
-        action: 'webhook.created',
-        resource_type: 'webhook',
-        resource_id: webhook.id,
-        company_id: companyId,
-        metadata: {
-          webhook_name: webhook.name,
-          url: webhook.url,
-          events: webhook.events
-        }
+      this.logOperation('webhook.created', webhook.id, companyId, {
+        webhook_name: webhook.name,
+        url: webhook.url,
+        events: webhook.events
       });
 
       return webhook;
@@ -168,23 +167,34 @@ class WebhookService extends BaseService {
       paramIndex++;
     }
 
-    const countResult = await this.executeQuery(
-      `SELECT COUNT(*) FROM webhook_endpoints we ${whereClause}`,
-      params
-    );
+    const { data: countResult, error: countError } = await supabase
+      .from('webhook_endpoints')
+      .select('*', { count: 'exact', head: true }) as { data: any[] | null, error: any };
+    
+    if (countError) {
+      throw new Error(`Failed to count webhooks: ${countError.message}`);
+    }
 
-    const total = parseInt(countResult.rows[0].count);
+    const total = countResult?.length || 0;
 
-    const result = await this.executeQuery(`
-      SELECT we.*, ak.name as api_key_name
-      FROM webhook_endpoints we
-      LEFT JOIN api_keys ak ON ak.id = we.api_key_id
-      ${whereClause}
-      ORDER BY we.created_at DESC
-      LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
-    `, [...params, limit, offset]);
+    let query = supabase
+      .from('webhook_endpoints')
+      .select('*, api_keys(name)')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1);
+    
+    if (options?.active !== undefined) {
+      query = query.eq('active', options.active);
+    }
+    
+    const { data: result, error } = await query as { data: any[] | null, error: any };
+    
+    if (error) {
+      throw new Error(`Failed to list webhooks: ${error.message}`);
+    }
 
-    const webhooks = result.rows.map(row => this.mapWebhookFromDb(row));
+    const webhooks = (result || []).map(row => this.mapWebhookFromDb(row));
 
     return {
       data: webhooks,
@@ -201,18 +211,18 @@ class WebhookService extends BaseService {
    * Get webhook details with delivery statistics
    */
   async getWebhookDetails(companyId: string, webhookId: string): Promise<WebhookEndpointDetails> {
-    const result = await this.executeQuery(`
-      SELECT we.*, ak.name as api_key_name
-      FROM webhook_endpoints we
-      LEFT JOIN api_keys ak ON ak.id = we.api_key_id
-      WHERE we.id = $1 AND we.company_id = $2
-    `, [webhookId, companyId]);
+    const { data: result, error } = await supabase
+      .from('webhook_endpoints')
+      .select('*, api_keys(name)')
+      .eq('id', webhookId)
+      .eq('company_id', companyId)
+      .single() as { data: any | null, error: any };
 
-    if (result.rows.length === 0) {
+    if (error || !result) {
       throw new Error('Webhook not found');
     }
 
-    const webhook = this.mapWebhookFromDb(result.rows[0]);
+    const webhook = this.mapWebhookFromDb(result);
 
     // Get delivery statistics
     const deliveryStats = await this.getDeliveryStats(webhookId);
@@ -241,18 +251,18 @@ class WebhookService extends BaseService {
   ): Promise<WebhookEndpoint> {
     const validatedRequest = updateWebhookSchema.parse(request);
 
-    return this.withTransaction(async (client) => {
+    return this.executeWithTransaction(async () => {
       // Check webhook exists and belongs to company
-      const existingResult = await client.query(
-        'SELECT * FROM webhook_endpoints WHERE id = $1 AND company_id = $2',
-        [webhookId, companyId]
-      );
+      const { data: existing, error: existingError } = await supabase
+        .from('webhook_endpoints')
+        .select('*')
+        .eq('id', webhookId)
+        .eq('company_id', companyId)
+        .single() as { data: any | null, error: any };
 
-      if (existingResult.rows.length === 0) {
+      if (existingError || !existing) {
         throw new Error('Webhook not found');
       }
-
-      const existing = existingResult.rows[0];
 
       // Validate events if provided
       if (validatedRequest.events) {
@@ -261,57 +271,52 @@ class WebhookService extends BaseService {
 
       // Check for name conflicts if name is being updated
       if (validatedRequest.name && validatedRequest.name !== existing.name) {
-        const nameCheck = await client.query(
-          'SELECT id FROM webhook_endpoints WHERE company_id = $1 AND name = $2 AND id != $3',
-          [companyId, validatedRequest.name, webhookId]
-        );
+        const { data: nameCheck } = await supabase
+          .from('webhook_endpoints')
+          .select('id')
+          .eq('company_id', companyId)
+          .eq('name', validatedRequest.name)
+          .neq('id', webhookId) as { data: Array<{ id: string }> | null, error: any };
 
-        if (nameCheck.rows.length > 0) {
+        if (nameCheck && nameCheck.length > 0) {
           throw new Error(`Webhook with name '${validatedRequest.name}' already exists`);
         }
       }
 
-      // Build update query
-      const updateFields: string[] = [];
-      const updateParams: any[] = [];
-      let paramIndex = 1;
+      // Build update object
+      const updateData: any = {
+        updated_at: new Date().toISOString()
+      };
 
       if (validatedRequest.name !== undefined) {
-        updateFields.push(`name = $${paramIndex++}`);
-        updateParams.push(validatedRequest.name);
+        updateData.name = validatedRequest.name;
       }
 
       if (validatedRequest.description !== undefined) {
-        updateFields.push(`description = $${paramIndex++}`);
-        updateParams.push(validatedRequest.description);
+        updateData.description = validatedRequest.description;
       }
 
       if (validatedRequest.url !== undefined) {
-        updateFields.push(`url = $${paramIndex++}`);
-        updateParams.push(validatedRequest.url);
+        updateData.url = validatedRequest.url;
       }
 
       if (validatedRequest.events !== undefined) {
-        updateFields.push(`events = $${paramIndex++}`);
-        updateParams.push(validatedRequest.events);
+        updateData.events = validatedRequest.events;
       }
 
       if (validatedRequest.event_filters !== undefined) {
-        updateFields.push(`event_filters = $${paramIndex++}`);
-        updateParams.push(JSON.stringify(validatedRequest.event_filters));
+        updateData.event_filters = validatedRequest.event_filters;
       }
 
       if (validatedRequest.active !== undefined) {
-        updateFields.push(`active = $${paramIndex++}`);
-        updateParams.push(validatedRequest.active);
+        updateData.active = validatedRequest.active;
         
         if (!validatedRequest.active) {
-          updateFields.push(`disabled_at = NOW()`);
-          updateFields.push(`disabled_reason = $${paramIndex++}`);
-          updateParams.push('Manually disabled via API');
+          updateData.disabled_at = new Date().toISOString();
+          updateData.disabled_reason = 'Manually disabled via API';
         } else if (existing.disabled_at) {
-          updateFields.push(`disabled_at = NULL`);
-          updateFields.push(`disabled_reason = NULL`);
+          updateData.disabled_at = null;
+          updateData.disabled_reason = null;
         }
       }
 
@@ -320,56 +325,47 @@ class WebhookService extends BaseService {
           ...this.defaultRetryPolicy,
           ...validatedRequest.retry_policy
         };
-        updateFields.push(`retry_policy = $${paramIndex++}`);
-        updateParams.push(JSON.stringify(retryPolicy));
+        updateData.retry_policy = retryPolicy;
       }
 
       if (validatedRequest.timeout_seconds !== undefined) {
-        updateFields.push(`timeout_seconds = $${paramIndex++}`);
-        updateParams.push(validatedRequest.timeout_seconds);
+        updateData.timeout_seconds = validatedRequest.timeout_seconds;
       }
 
       if (validatedRequest.custom_headers !== undefined) {
-        updateFields.push(`custom_headers = $${paramIndex++}`);
-        updateParams.push(JSON.stringify(validatedRequest.custom_headers));
+        updateData.custom_headers = validatedRequest.custom_headers;
       }
 
       if (validatedRequest.auth_type !== undefined) {
-        updateFields.push(`auth_type = $${paramIndex++}`);
-        updateParams.push(validatedRequest.auth_type);
+        updateData.auth_type = validatedRequest.auth_type;
       }
 
       if (validatedRequest.auth_config !== undefined) {
-        updateFields.push(`auth_config = $${paramIndex++}`);
-        updateParams.push(JSON.stringify(validatedRequest.auth_config));
+        updateData.auth_config = validatedRequest.auth_config;
       }
 
-      if (updateFields.length === 0) {
+      if (Object.keys(updateData).length === 1) { // Only has updated_at
         throw new Error('No fields to update');
       }
 
-      updateFields.push('updated_at = NOW()');
-      updateParams.push(webhookId, companyId);
+      const { data: updateResult, error: updateError } = await supabase
+        .from('webhook_endpoints')
+        .update(updateData)
+        .eq('id', webhookId)
+        .eq('company_id', companyId)
+        .select()
+        .single() as { data: any | null, error: any };
 
-      const updateResult = await client.query(`
-        UPDATE webhook_endpoints 
-        SET ${updateFields.join(', ')}
-        WHERE id = $${paramIndex++} AND company_id = $${paramIndex++}
-        RETURNING *
-      `, updateParams);
+      if (updateError) {
+        throw new Error(`Failed to update webhook: ${updateError.message}`);
+      }
 
-      const updatedWebhook = this.mapWebhookFromDb(updateResult.rows[0]);
+      const updatedWebhook = this.mapWebhookFromDb(updateResult);
 
       // Log the update
-      await this.logAuditEvent(client, {
-        action: 'webhook.updated',
-        resource_type: 'webhook',
-        resource_id: webhookId,
-        company_id: companyId,
-        changes: validatedRequest,
-        metadata: {
-          webhook_name: updatedWebhook.name
-        }
+      this.logOperation('webhook.updated', webhookId, companyId, {
+        webhook_name: updatedWebhook.name,
+        changes: validatedRequest
       });
 
       return updatedWebhook;
@@ -380,26 +376,22 @@ class WebhookService extends BaseService {
    * Delete webhook endpoint
    */
   async deleteWebhook(companyId: string, webhookId: string): Promise<void> {
-    return this.withTransaction(async (client) => {
-      const result = await client.query(`
-        DELETE FROM webhook_endpoints 
-        WHERE id = $1 AND company_id = $2
-        RETURNING name
-      `, [webhookId, companyId]);
+    return this.executeWithTransaction(async () => {
+      const { data: result, error } = await supabase
+        .from('webhook_endpoints')
+        .delete()
+        .eq('id', webhookId)
+        .eq('company_id', companyId)
+        .select('name')
+        .single() as { data: any | null, error: any };
 
-      if (result.rows.length === 0) {
+      if (error || !result) {
         throw new Error('Webhook not found');
       }
 
       // Log the deletion
-      await this.logAuditEvent(client, {
-        action: 'webhook.deleted',
-        resource_type: 'webhook',
-        resource_id: webhookId,
-        company_id: companyId,
-        metadata: {
-          webhook_name: result.rows[0].name
-        }
+      this.logOperation('webhook.deleted', webhookId, companyId, {
+        webhook_name: result.name
       });
     });
   }
@@ -448,30 +440,39 @@ class WebhookService extends BaseService {
     eventData: any,
     eventId?: string
   ): Promise<number> {
-    const result = await this.executeQuery(
-      'SELECT queue_webhook_delivery($1, $2, $3, $4) as queued_count',
-      [companyId, eventType, JSON.stringify(eventData), eventId]
-    );
+    const { data: result, error } = await supabase
+      .rpc('queue_webhook_delivery', {
+        p_company_id: companyId,
+        p_event_type: eventType,
+        p_event_data: JSON.stringify(eventData),
+        p_event_id: eventId
+      }) as { data: any, error: any };
 
-    return result.rows[0].queued_count;
+    if (error) {
+      throw new Error(`Failed to queue webhook delivery: ${error.message}`);
+    }
+
+    return result || 0;
   }
 
   /**
    * Process pending webhook deliveries
    */
   async processPendingDeliveries(limit: number = 100): Promise<number> {
-    const result = await this.executeQuery(`
-      SELECT id, webhook_endpoint_id, event_type, event_data, event_id, attempt_number
-      FROM webhook_deliveries
-      WHERE delivery_status = 'pending'
-        OR (delivery_status = 'retrying' AND next_retry_at <= NOW())
-      ORDER BY scheduled_at ASC
-      LIMIT $1
-    `, [limit]);
+    const { data: result, error } = await supabase
+      .from('webhook_deliveries')
+      .select('id, webhook_endpoint_id, event_type, event_data, event_id, attempt_number')
+      .or('delivery_status.eq.pending,and(delivery_status.eq.retrying,next_retry_at.lte.now())')
+      .order('scheduled_at', { ascending: true })
+      .limit(limit) as { data: any[] | null, error: any };
+
+    if (error) {
+      throw new Error(`Failed to fetch pending deliveries: ${error.message}`);
+    }
 
     let processedCount = 0;
 
-    for (const delivery of result.rows) {
+    for (const delivery of result || []) {
       try {
         await this.processDelivery(delivery.id);
         processedCount++;
@@ -487,45 +488,34 @@ class WebhookService extends BaseService {
    * Process a specific webhook delivery
    */
   private async processDelivery(deliveryId: string): Promise<WebhookDelivery> {
-    return this.withTransaction(async (client) => {
+    return this.executeWithTransaction(async () => {
       // Get delivery details
-      const deliveryResult = await client.query(`
-        SELECT 
-          wd.*,
-          we.url, we.secret, we.retry_policy, we.timeout_seconds,
-          we.custom_headers, we.auth_type, we.auth_config
-        FROM webhook_deliveries wd
-        JOIN webhook_endpoints we ON we.id = wd.webhook_endpoint_id
-        WHERE wd.id = $1
-      `, [deliveryId]);
+      const { data: delivery, error } = await supabase
+        .from('webhook_deliveries')
+        .select(`
+          *,
+          webhook_endpoints!inner(
+            url, secret, retry_policy, timeout_seconds,
+            custom_headers, auth_type, auth_config
+          )
+        `)
+        .eq('id', deliveryId)
+        .single() as { data: any | null, error: any };
 
-      if (deliveryResult.rows.length === 0) {
+      if (error || !delivery) {
         throw new Error('Delivery not found');
       }
-
-      const delivery = deliveryResult.rows[0];
-      const webhook = {
-        url: delivery.url,
-        secret: delivery.secret,
-        retry_policy: typeof delivery.retry_policy === 'string' 
-          ? JSON.parse(delivery.retry_policy) 
-          : delivery.retry_policy,
-        timeout_seconds: delivery.timeout_seconds,
-        custom_headers: typeof delivery.custom_headers === 'string'
-          ? JSON.parse(delivery.custom_headers)
-          : delivery.custom_headers,
-        auth_type: delivery.auth_type,
-        auth_config: typeof delivery.auth_config === 'string'
-          ? JSON.parse(delivery.auth_config)
-          : delivery.auth_config
-      };
+      const webhook = delivery.webhook_endpoints;
 
       try {
         // Mark as in progress
-        await client.query(
-          'UPDATE webhook_deliveries SET delivery_status = $1, delivered_at = NOW() WHERE id = $2',
-          ['processing', deliveryId]
-        );
+        await supabase
+          .from('webhook_deliveries')
+          .update({ 
+            delivery_status: 'processing',
+            delivered_at: new Date().toISOString()
+          } as any)
+          .eq('id', deliveryId);
 
         // Make HTTP request
         const deliveryResult = await this.makeWebhookRequest(
@@ -535,25 +525,20 @@ class WebhookService extends BaseService {
         );
 
         // Update delivery record with success
-        await client.query(`
-          UPDATE webhook_deliveries SET 
-            delivery_status = 'success',
-            response_status = $1,
-            response_headers = $2,
-            response_body = $3,
-            response_time_ms = $4,
-            delivered_at = NOW()
-          WHERE id = $5
-        `, [
-          deliveryResult.status,
-          JSON.stringify(deliveryResult.headers),
-          deliveryResult.body,
-          deliveryResult.responseTime,
-          deliveryId
-        ]);
+        await supabase
+          .from('webhook_deliveries')
+          .update({
+            delivery_status: 'success',
+            response_status: deliveryResult.status,
+            response_headers: deliveryResult.headers,
+            response_body: deliveryResult.body,
+            response_time_ms: deliveryResult.responseTime,
+            delivered_at: new Date().toISOString()
+          } as any)
+          .eq('id', deliveryId);
 
         // Update webhook endpoint stats
-        await this.updateWebhookStats(client, delivery.webhook_endpoint_id, true);
+        await this.updateWebhookStats(delivery.webhook_endpoint_id, true);
 
         return this.mapDeliveryFromDb({
           ...delivery,
@@ -570,24 +555,26 @@ class WebhookService extends BaseService {
         if (shouldRetry) {
           const nextRetryAt = this.calculateNextRetry(delivery, webhook.retry_policy);
           
-          await client.query(`
-            UPDATE webhook_deliveries SET 
-              delivery_status = 'retrying',
-              error_message = $1,
-              next_retry_at = $2
-            WHERE id = $3
-          `, [errorMessage, nextRetryAt, deliveryId]);
+          await supabase
+            .from('webhook_deliveries')
+            .update({
+              delivery_status: 'retrying',
+              error_message: errorMessage,
+              next_retry_at: nextRetryAt.toISOString()
+            } as any)
+            .eq('id', deliveryId);
         } else {
-          await client.query(`
-            UPDATE webhook_deliveries SET 
-              delivery_status = 'failed',
-              error_message = $1,
-              delivered_at = NOW()
-            WHERE id = $2
-          `, [errorMessage, deliveryId]);
+          await supabase
+            .from('webhook_deliveries')
+            .update({
+              delivery_status: 'failed',
+              error_message: errorMessage,
+              delivered_at: new Date().toISOString()
+            } as any)
+            .eq('id', deliveryId);
 
           // Update webhook endpoint stats
-          await this.updateWebhookStats(client, delivery.webhook_endpoint_id, false);
+          await this.updateWebhookStats(delivery.webhook_endpoint_id, false);
         }
 
         return this.mapDeliveryFromDb({
@@ -695,12 +682,16 @@ class WebhookService extends BaseService {
    * Validate webhook events exist
    */
   private async validateEvents(events: string[]) {
-    const result = await this.executeQuery(
-      'SELECT event_type FROM webhook_events WHERE event_type = ANY($1)',
-      [events]
-    );
+    const { data: result, error } = await supabase
+      .from('webhook_events')
+      .select('event_type')
+      .in('event_type', events) as { data: Array<{ event_type: string }> | null, error: any };
 
-    const validEvents = result.rows.map(row => row.event_type);
+    if (error) {
+      throw new Error(`Failed to validate events: ${error.message}`);
+    }
+
+    const validEvents = (result || []).map(row => row.event_type);
     const invalidEvents = events.filter(event => !validEvents.includes(event));
 
     if (invalidEvents.length > 0) {
@@ -718,27 +709,30 @@ class WebhookService extends BaseService {
     eventId: string,
     isTest: boolean = false
   ): Promise<string> {
-    const result = await this.executeQuery(`
-      INSERT INTO webhook_deliveries (
-        webhook_endpoint_id, event_type, event_data, event_id,
-        request_body, scheduled_at
-      ) VALUES ($1, $2, $3, $4, $5, NOW())
-      RETURNING id
-    `, [
-      webhookEndpointId,
-      eventType,
-      JSON.stringify(eventData),
-      eventId,
-      JSON.stringify({
+    const { data: result, error } = await supabase
+      .from('webhook_deliveries')
+      .insert({
+        webhook_endpoint_id: webhookEndpointId,
         event_type: eventType,
+        event_data: eventData,
         event_id: eventId,
-        data: eventData,
-        timestamp: new Date().toISOString(),
-        test: isTest
+        request_body: {
+          event_type: eventType,
+          event_id: eventId,
+          data: eventData,
+          timestamp: new Date().toISOString(),
+          test: isTest
+        },
+        scheduled_at: new Date().toISOString()
       })
-    ]);
+      .select('id')
+      .single() as { data: { id: string } | null, error: any };
 
-    return result.rows[0].id;
+    if (error) {
+      throw new Error(`Failed to queue delivery: ${error.message}`);
+    }
+
+    return result?.id || '';
   }
 
   /**
@@ -800,27 +794,15 @@ class WebhookService extends BaseService {
   /**
    * Update webhook endpoint statistics
    */
-  private async updateWebhookStats(client: any, webhookEndpointId: string, success: boolean) {
+  private async updateWebhookStats(webhookEndpointId: string, success: boolean) {
     if (success) {
-      await client.query(`
-        UPDATE webhook_endpoints SET 
-          last_delivery_at = NOW(),
-          last_successful_delivery_at = NOW(),
-          total_deliveries = total_deliveries + 1,
-          successful_deliveries = successful_deliveries + 1,
-          consecutive_failures = 0,
-          updated_at = NOW()
-        WHERE id = $1
-      `, [webhookEndpointId]);
+      await supabase.rpc('update_webhook_stats_success', {
+        p_webhook_id: webhookEndpointId
+      } as any);
     } else {
-      await client.query(`
-        UPDATE webhook_endpoints SET 
-          last_delivery_at = NOW(),
-          total_deliveries = total_deliveries + 1,
-          consecutive_failures = consecutive_failures + 1,
-          updated_at = NOW()
-        WHERE id = $1
-      `, [webhookEndpointId]);
+      await supabase.rpc('update_webhook_stats_failure', {
+        p_webhook_id: webhookEndpointId
+      } as any);
     }
   }
 
@@ -828,38 +810,38 @@ class WebhookService extends BaseService {
    * Get delivery statistics for webhook
    */
   private async getDeliveryStats(webhookEndpointId: string): Promise<WebhookDeliveryStats> {
-    const result = await this.executeQuery(`
-      SELECT 
-        COUNT(*) as total_deliveries,
-        COUNT(CASE WHEN delivery_status = 'success' THEN 1 END) as successful_deliveries,
-        COUNT(CASE WHEN delivery_status = 'failed' THEN 1 END) as failed_deliveries,
-        AVG(response_time_ms)::integer as avg_response_time_ms,
-        MAX(delivered_at) as last_delivery_at,
-        MAX(CASE WHEN delivery_status = 'success' THEN delivered_at END) as last_successful_delivery_at
-      FROM webhook_deliveries
-      WHERE webhook_endpoint_id = $1
-        AND created_at >= NOW() - INTERVAL '30 days'
-    `, [webhookEndpointId]);
+    const { data: stats, error: statsError } = await (supabase as any)
+      .rpc('get_webhook_delivery_stats', {
+        p_webhook_id: webhookEndpointId
+      });
 
-    const stats = result.rows[0];
-    const totalDeliveries = parseInt(stats.total_deliveries) || 0;
-    const successfulDeliveries = parseInt(stats.successful_deliveries) || 0;
+    if (statsError) {
+      throw new Error(`Failed to get delivery stats: ${statsError.message}`);
+    }
+
+    const totalDeliveries = parseInt(stats?.total_deliveries) || 0;
+    const successfulDeliveries = parseInt(stats?.successful_deliveries) || 0;
 
     // Get consecutive failures from webhook endpoint
-    const endpointResult = await this.executeQuery(
-      'SELECT consecutive_failures FROM webhook_endpoints WHERE id = $1',
-      [webhookEndpointId]
-    );
+    const { data: endpointResult, error: endpointError } = await supabase
+      .from('webhook_endpoints')
+      .select('consecutive_failures')
+      .eq('id', webhookEndpointId)
+      .single() as { data: { consecutive_failures: number } | null, error: any };
+
+    if (endpointError) {
+      console.error('Failed to get consecutive failures:', endpointError);
+    }
 
     return {
       total_deliveries: totalDeliveries,
       successful_deliveries: successfulDeliveries,
-      failed_deliveries: parseInt(stats.failed_deliveries) || 0,
+      failed_deliveries: parseInt(stats?.failed_deliveries) || 0,
       success_rate: totalDeliveries > 0 ? (successfulDeliveries / totalDeliveries) : 0,
-      avg_response_time_ms: parseInt(stats.avg_response_time_ms) || 0,
-      last_delivery_at: stats.last_delivery_at?.toISOString(),
-      last_successful_delivery_at: stats.last_successful_delivery_at?.toISOString(),
-      consecutive_failures: endpointResult.rows[0]?.consecutive_failures || 0
+      avg_response_time_ms: parseInt(stats?.avg_response_time_ms) || 0,
+      last_delivery_at: stats?.last_delivery_at,
+      last_successful_delivery_at: stats?.last_successful_delivery_at,
+      consecutive_failures: endpointResult?.consecutive_failures || 0
     };
   }
 
@@ -867,14 +849,18 @@ class WebhookService extends BaseService {
    * Get recent deliveries for webhook
    */
   private async getRecentDeliveries(webhookEndpointId: string, limit: number = 10): Promise<WebhookDelivery[]> {
-    const result = await this.executeQuery(`
-      SELECT * FROM webhook_deliveries
-      WHERE webhook_endpoint_id = $1
-      ORDER BY created_at DESC
-      LIMIT $2
-    `, [webhookEndpointId, limit]);
+    const { data: result, error } = await supabase
+      .from('webhook_deliveries')
+      .select('*')
+      .eq('webhook_endpoint_id', webhookEndpointId)
+      .order('created_at', { ascending: false })
+      .limit(limit) as { data: any[] | null, error: any };
 
-    return result.rows.map(row => this.mapDeliveryFromDb(row));
+    if (error) {
+      throw new Error(`Failed to get recent deliveries: ${error.message}`);
+    }
+
+    return (result || []).map(row => this.mapDeliveryFromDb(row));
   }
 
   /**
@@ -884,16 +870,16 @@ class WebhookService extends BaseService {
     const stats = await this.getDeliveryStats(webhookEndpointId);
     
     // Calculate uptime percentage over last 24 hours
-    const uptimeResult = await this.executeQuery(`
-      SELECT 
-        COUNT(CASE WHEN delivery_status = 'success' THEN 1 END) as successful_count,
-        COUNT(*) as total_count
-      FROM webhook_deliveries
-      WHERE webhook_endpoint_id = $1
-        AND created_at >= NOW() - INTERVAL '24 hours'
-    `, [webhookEndpointId]);
+    const { data: uptimeResult, error: uptimeError } = await (supabase as any)
+      .rpc('get_webhook_uptime_stats', {
+        p_webhook_id: webhookEndpointId
+      });
 
-    const uptimeStats = uptimeResult.rows[0];
+    if (uptimeError) {
+      console.error('Failed to get uptime stats:', uptimeError);
+    }
+
+    const uptimeStats = uptimeResult || { successful_count: 0, total_count: 0 };
     const uptimePercentage = uptimeStats.total_count > 0 
       ? (uptimeStats.successful_count / uptimeStats.total_count)
       : 1;
