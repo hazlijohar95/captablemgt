@@ -28,11 +28,12 @@ export default defineConfig({
       onwarn: () => {}, // Suppress all warnings
       external: [], // Don't externalize anything
       output: {
-        manualChunks: () => null, // Force single bundle
+        inlineDynamicImports: true, // Force everything into one file
+        manualChunks: undefined,
       }
     },
     target: 'es2015',
-    chunkSizeWarningLimit: 3000,
+    chunkSizeWarningLimit: 5000,
     assetsInlineLimit: 4096,
   },
   esbuild: {
