@@ -1,7 +1,7 @@
 import { supabase } from '@/services/supabase';
 import { AuthorizationService } from '@/services/authorizationService';
 import { ULID } from '@/types';
-import { logger, withTiming, logAudit } from '@/utils/logger';
+import { logger } from '@/utils/simpleLogger';
 import {
   SecurityWithDetails,
   SecuritySummary,

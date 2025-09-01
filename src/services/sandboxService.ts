@@ -5,7 +5,7 @@
 
 import { BaseService } from './baseService';
 import { SandboxInfo, SampleApiRequest, ApiKey } from '@/types/api';
-import { logger } from '@/utils/logger';
+import { logger } from '@/utils/simpleLogger';
 
 interface SandboxCompany {
   id: string;

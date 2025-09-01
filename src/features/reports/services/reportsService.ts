@@ -1,6 +1,6 @@
 import { ULID } from '@/types';
 import { AuthorizationService } from '@/services/authorizationService';
-import { logError, logInfo, withTiming } from '@/utils/logger';
+import { logger } from '@/utils/simpleLogger';
 import {
   ReportType,
   ReportGenerationRequest,
@@ -50,16 +50,15 @@ export class ReportsService {
     companyId: ULID,
     request: ReportGenerationRequest
   ): Promise<ReportGenerationResponse> {
-    return withTiming('ReportsService.generateReport', async () => {
-      // Validate access
-      await AuthorizationService.validateCompanyAccess(companyId);
-      await AuthorizationService.verifyFinancialDataAccess(companyId, 'read');
+    // Validate access
+    await AuthorizationService.validateCompanyAccess(companyId);
+    await AuthorizationService.verifyFinancialDataAccess(companyId, 'read');
 
-      logInfo('Starting report generation', {
-        companyId,
-        reportType: request.reportType,
-        exportFormat: request.exportFormat
-      });
+    logger.info('Starting report generation', {
+      companyId,
+      reportType: request.reportType,
+      exportFormat: request.exportFormat
+    });
 
       // Create report generation record
       const reportId = crypto.randomUUID() as ULID;

@@ -1,5 +1,5 @@
 import { supabase } from '@/services/supabase';
-import { logger } from './logger';
+import { logger } from './simpleLogger';
 import React from 'react';
 
 export interface IHealthCheckResult {

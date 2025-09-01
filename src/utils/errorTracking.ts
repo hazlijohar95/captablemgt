@@ -3,7 +3,7 @@
  * Centralized error handling, reporting, and monitoring
  */
 
-import { logger, logError, logSecurity } from './logger';
+import { logger } from './simpleLogger';
 
 export interface ErrorContext {
   userId?: string;

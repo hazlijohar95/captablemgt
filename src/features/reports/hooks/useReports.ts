@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useAsyncOperation } from '@/hooks/useAsyncOperation';
 import { ReportsService } from '../services/reportsService';
-import { logError, logInfo } from '@/utils/logger';
+import { logger } from '@/utils/simpleLogger';
 import { 
   ReportType, 
   GeneratedReport, 
@@ -42,7 +42,7 @@ export function useReports({ companyId, autoRefresh = true, refreshInterval = 30
       setReports(data || []);
       return data;
     } catch (error) {
-      logError('Failed to load reports', error as Error, { companyId });
+      logger.error('Failed to load reports', error as Error, { companyId });
       setReports([]);
       return [];
     }
@@ -60,7 +60,7 @@ export function useReports({ companyId, autoRefresh = true, refreshInterval = 30
       setStats(data || null);
       return data;
     } catch (error) {
-      logError('Failed to load report stats', error as Error, { companyId });
+      logger.error('Failed to load report stats', error as Error, { companyId });
       setStats(null);
       return null;
     }
@@ -78,7 +78,7 @@ export function useReports({ companyId, autoRefresh = true, refreshInterval = 30
     setGeneratingReports(prev => ({ ...prev, [requestId]: true }));
 
     try {
-      logInfo('Starting report generation', { companyId, reportType, exportFormat });
+      logger.info('Starting report generation', { companyId, reportType, exportFormat });
 
       const request: ReportGenerationRequest = {
         reportType,
@@ -97,7 +97,7 @@ export function useReports({ companyId, autoRefresh = true, refreshInterval = 30
         }, 5000);
       }
 
-      logInfo('Report generation started successfully', { 
+      logger.info('Report generation started successfully', { 
         companyId, 
         reportType, 
         reportId: response.id 
@@ -106,7 +106,7 @@ export function useReports({ companyId, autoRefresh = true, refreshInterval = 30
       return response;
 
     } catch (error) {
-      logError('Report generation failed', error as Error, { 
+      logger.error('Report generation failed', error as Error, { 
         companyId, 
         reportType, 
         exportFormat 
@@ -126,13 +126,13 @@ export function useReports({ companyId, autoRefresh = true, refreshInterval = 30
       }
 
       // In a real implementation, this would trigger the download
-      logInfo('Downloading report', { companyId, reportId, reportName: report.reportName });
+      logger.info('Downloading report', { companyId, reportId, reportName: report.reportName });
       
       // Simulate download
       window.open(report.downloadUrl, '_blank');
 
     } catch (error) {
-      logError('Report download failed', error as Error, { companyId, reportId });
+      logger.error('Report download failed', error as Error, { companyId, reportId });
       throw error;
     }
   }, [reports, companyId]);
@@ -145,13 +145,13 @@ export function useReports({ companyId, autoRefresh = true, refreshInterval = 30
       // Update local state
       setReports(prev => prev.filter(r => r.id !== reportId));
       
-      logInfo('Report deleted successfully', { companyId, reportId });
+      logger.info('Report deleted successfully', { companyId, reportId });
       
       // Refresh stats
       await loadStats();
 
     } catch (error) {
-      logError('Report deletion failed', error as Error, { companyId, reportId });
+      logger.error('Report deletion failed', error as Error, { companyId, reportId });
       throw error;
     }
   }, [companyId, loadStats]);
@@ -161,7 +161,7 @@ export function useReports({ companyId, autoRefresh = true, refreshInterval = 30
     try {
       return await ReportsService.getReportStatus(companyId, reportId);
     } catch (error) {
-      logError('Failed to check report status', error as Error, { companyId, reportId });
+      logger.error('Failed to check report status', error as Error, { companyId, reportId });
       return null;
     }
   }, [companyId]);
