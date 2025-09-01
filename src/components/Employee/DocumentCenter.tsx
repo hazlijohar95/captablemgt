@@ -50,7 +50,7 @@ export const DocumentCenter: React.FC = () => {
     error
   } = useQuery({
     queryKey: ['employeeDocuments', employee?.id],
-    queryFn: () => employeePortalService.getEmployeeDocuments(employee!.id, employee!.company_id),
+    queryFn: () => employeePortalService.getEmployeeDocuments(employee!.id),
     enabled: !!employee,
     staleTime: 2 * 60 * 1000, // 2 minutes
     retry: 1

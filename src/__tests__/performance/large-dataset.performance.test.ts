@@ -25,10 +25,8 @@ const mockSupabaseClient = {
         order: vi.fn(() => ({
           range: vi.fn(() => ({
             // Mock query execution time
-            then: vi.fn((callback) => {
-              const startTime = performance.now();
+            then: vi.fn((_callback) => {
               const mockData = generateLargeStakeholderDataset(PERFORMANCE_THRESHOLDS.EXPECTED_PAGE_SIZE);
-              const endTime = performance.now();
               
               return Promise.resolve({
                 data: mockData,
@@ -227,7 +225,7 @@ describe('Large Dataset Performance Tests', () => {
   describe('Memory Usage Tests', () => {
     it('should not cause memory leaks with large datasets', async () => {
       // Check initial memory usage
-      const initialMemory = (global.gc && global.performance.memory?.usedJSHeapSize) || 0;
+      const initialMemory = (global.gc && (performance as any).memory?.usedJSHeapSize) || 0;
       
       // Create and destroy multiple table instances
       for (let i = 0; i < 10; i++) {
@@ -249,7 +247,7 @@ describe('Large Dataset Performance Tests', () => {
       // Force garbage collection if available
       global.gc && global.gc();
       
-      const finalMemory = (global.gc && global.performance.memory?.usedJSHeapSize) || 0;
+      const finalMemory = (global.gc && (performance as any).memory?.usedJSHeapSize) || 0;
       const memoryIncrease = finalMemory - initialMemory;
       
       performanceMetrics.MEMORY_INCREASE_MB = memoryIncrease / (1024 * 1024);
@@ -302,6 +300,7 @@ describe('Large Dataset Performance Tests', () => {
   describe('Caching Performance', () => {
     it('should serve cached results quickly', async () => {
       const cacheKey = 'test_stakeholders_page_1';
+      console.log(`Testing cache for key: ${cacheKey}`);
       
       // First request (cache miss)
       const startTime1 = performance.now();

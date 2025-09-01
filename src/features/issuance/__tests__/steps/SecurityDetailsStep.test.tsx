@@ -1,13 +1,13 @@
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import SecurityDetailsStep from '../../components/steps/SecurityDetailsStep';
 import { renderWithProviders, createMockShareClass } from '../test-utils';
 import { SECURITY_TYPE_CONFIGS } from '../../types/issuance.types';
 
 // Mock the services
-jest.mock('../../services/issuanceService');
-jest.mock('@/services/csrfService');
+vi.mock('../../services/issuanceService');
+vi.mock('@/services/csrfService');
 
 describe('SecurityDetailsStep', () => {
   const mockShareClasses = [
@@ -24,7 +24,7 @@ describe('SecurityDetailsStep', () => {
   ];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     const { issuanceService } = require('../../services/issuanceService');
     issuanceService.getStakeholders.mockResolvedValue([]);

@@ -1,22 +1,22 @@
 import React from 'react';
 import { screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import StakeholderSelectionStep from '../../components/steps/StakeholderSelectionStep';
 import { renderWithProviders, createMockStakeholder } from '../test-utils';
 
 // Mock the issuance service
-jest.mock('../../services/issuanceService', () => ({
+vi.mock('../../services/issuanceService', () => ({
   issuanceService: {
-    getStakeholders: jest.fn(),
-    getShareClasses: jest.fn(),
-    getRecommendedStrikePrice: jest.fn()
+    getStakeholders: vi.fn(),
+    getShareClasses: vi.fn(),
+    getRecommendedStrikePrice: vi.fn()
   }
 }));
 
 // Mock CSRF service
-jest.mock('@/services/csrfService', () => ({
+vi.mock('@/services/csrfService', () => ({
   CSRFService: {
-    getToken: jest.fn().mockResolvedValue('mock-token')
+    getToken: vi.fn().mockResolvedValue('mock-token')
   }
 }));
 
@@ -42,7 +42,7 @@ describe('StakeholderSelectionStep', () => {
 
   beforeEach(() => {
     // Reset mocks before each test
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     const { issuanceService } = require('../../services/issuanceService');
     issuanceService.getStakeholders.mockResolvedValue(mockStakeholders);

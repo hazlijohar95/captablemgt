@@ -175,7 +175,7 @@ export const validateGenerateReportRequest = (data: any) => {
     return GenerateReportRequestSchema.parse(data);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      const fieldErrors = error.errors.map(err => `${err.path.join('.')}: ${err.message}`).join(', ');
+      const fieldErrors = error.issues.map((err: z.ZodIssue) => `${err.path.join('.')}: ${err.message}`).join(', ');
       throw new ValidationError(`Validation failed: ${fieldErrors}`);
     }
     throw error;

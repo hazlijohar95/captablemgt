@@ -402,12 +402,274 @@ export interface Database {
           updated_at?: string;
         };
       };
+      webhook_endpoints: {
+        Row: {
+          id: string;
+          company_id: string;
+          api_key_id: string;
+          name: string;
+          description: string | null;
+          url: string;
+          secret: string;
+          events: string[];
+          event_filters: Json;
+          active: boolean;
+          retry_policy: Json;
+          timeout_seconds: number;
+          custom_headers: Json;
+          auth_type: 'signature' | 'bearer' | 'basic' | 'none';
+          auth_config: Json;
+          last_delivery_at: string | null;
+          last_successful_delivery_at: string | null;
+          consecutive_failures: number;
+          total_deliveries: number;
+          successful_deliveries: number;
+          disabled_at: string | null;
+          disabled_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          api_key_id: string;
+          name: string;
+          description?: string | null;
+          url: string;
+          secret: string;
+          events: string[];
+          event_filters?: Json;
+          active?: boolean;
+          retry_policy?: Json;
+          timeout_seconds?: number;
+          custom_headers?: Json;
+          auth_type?: 'signature' | 'bearer' | 'basic' | 'none';
+          auth_config?: Json;
+          last_delivery_at?: string | null;
+          last_successful_delivery_at?: string | null;
+          consecutive_failures?: number;
+          total_deliveries?: number;
+          successful_deliveries?: number;
+          disabled_at?: string | null;
+          disabled_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          api_key_id?: string;
+          name?: string;
+          description?: string | null;
+          url?: string;
+          secret?: string;
+          events?: string[];
+          event_filters?: Json;
+          active?: boolean;
+          retry_policy?: Json;
+          timeout_seconds?: number;
+          custom_headers?: Json;
+          auth_type?: 'signature' | 'bearer' | 'basic' | 'none';
+          auth_config?: Json;
+          last_delivery_at?: string | null;
+          last_successful_delivery_at?: string | null;
+          consecutive_failures?: number;
+          total_deliveries?: number;
+          successful_deliveries?: number;
+          disabled_at?: string | null;
+          disabled_reason?: string | null;
+          updated_at?: string;
+        };
+      };
+      webhook_deliveries: {
+        Row: {
+          id: string;
+          webhook_endpoint_id: string;
+          event_type: string;
+          event_data: Json;
+          event_id: string;
+          attempt_number: number;
+          delivery_status: 'pending' | 'processing' | 'success' | 'failed' | 'retrying';
+          request_headers: Json;
+          request_body: Json;
+          response_status: number | null;
+          response_headers: Json | null;
+          response_body: string | null;
+          response_time_ms: number | null;
+          error_message: string | null;
+          error_code: string | null;
+          scheduled_at: string;
+          delivered_at: string | null;
+          next_retry_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          webhook_endpoint_id: string;
+          event_type: string;
+          event_data: Json;
+          event_id: string;
+          attempt_number?: number;
+          delivery_status?: 'pending' | 'processing' | 'success' | 'failed' | 'retrying';
+          request_headers?: Json;
+          request_body?: Json;
+          response_status?: number | null;
+          response_headers?: Json | null;
+          response_body?: string | null;
+          response_time_ms?: number | null;
+          error_message?: string | null;
+          error_code?: string | null;
+          scheduled_at?: string;
+          delivered_at?: string | null;
+          next_retry_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          webhook_endpoint_id?: string;
+          event_type?: string;
+          event_data?: Json;
+          event_id?: string;
+          attempt_number?: number;
+          delivery_status?: 'pending' | 'processing' | 'success' | 'failed' | 'retrying';
+          request_headers?: Json;
+          request_body?: Json;
+          response_status?: number | null;
+          response_headers?: Json | null;
+          response_body?: string | null;
+          response_time_ms?: number | null;
+          error_message?: string | null;
+          error_code?: string | null;
+          scheduled_at?: string;
+          delivered_at?: string | null;
+          next_retry_at?: string | null;
+        };
+      };
+      webhook_events: {
+        Row: {
+          id: string;
+          event_type: string;
+          name: string;
+          description: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_type: string;
+          name: string;
+          description?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_type?: string;
+          name?: string;
+          description?: string | null;
+        };
+      };
+      api_keys: {
+        Row: {
+          id: string;
+          company_id: string;
+          name: string;
+          description: string | null;
+          environment: 'sandbox' | 'production';
+          scopes: string[];
+          rate_limit_tier: 'standard' | 'premium' | 'enterprise';
+          key_hash: string;
+          key_prefix: string;
+          last_used_at: string | null;
+          expires_at: string | null;
+          revoked_at: string | null;
+          revoked_reason: string | null;
+          created_by: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          company_id: string;
+          name: string;
+          description?: string | null;
+          environment: 'sandbox' | 'production';
+          scopes: string[];
+          rate_limit_tier?: 'standard' | 'premium' | 'enterprise';
+          key_hash: string;
+          key_prefix: string;
+          last_used_at?: string | null;
+          expires_at?: string | null;
+          revoked_at?: string | null;
+          revoked_reason?: string | null;
+          created_by: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          company_id?: string;
+          name?: string;
+          description?: string | null;
+          environment?: 'sandbox' | 'production';
+          scopes?: string[];
+          rate_limit_tier?: 'standard' | 'premium' | 'enterprise';
+          key_hash?: string;
+          key_prefix?: string;
+          last_used_at?: string | null;
+          expires_at?: string | null;
+          revoked_at?: string | null;
+          revoked_reason?: string | null;
+          created_by?: string;
+          updated_at?: string;
+        };
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      queue_webhook_delivery: {
+        Args: {
+          p_company_id: string;
+          p_event_type: string;
+          p_event_data: string;
+          p_event_id?: string;
+        };
+        Returns: number;
+      };
+      update_webhook_stats_success: {
+        Args: {
+          p_webhook_id: string;
+        };
+        Returns: void;
+      };
+      update_webhook_stats_failure: {
+        Args: {
+          p_webhook_id: string;
+        };
+        Returns: void;
+      };
+      get_webhook_delivery_stats: {
+        Args: {
+          p_webhook_id: string;
+        };
+        Returns: {
+          total_deliveries: number;
+          successful_deliveries: number;
+          failed_deliveries: number;
+          avg_response_time_ms: number;
+          last_delivery_at: string | null;
+          last_successful_delivery_at: string | null;
+        };
+      };
+      get_webhook_uptime_stats: {
+        Args: {
+          p_webhook_id: string;
+        };
+        Returns: {
+          successful_count: number;
+          total_count: number;
+        };
+      };
     };
     Enums: {
       [_ in never]: never;

@@ -1,7 +1,7 @@
 import React from 'react';
 import { DocumentCenter } from '@/components/Employee/DocumentCenter';
 
-export const DocumentsPage: React.FC = () => {
+const DocumentsPage: React.FC = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="p-4">
@@ -21,3 +21,5 @@ export const DocumentsPage: React.FC = () => {
     </div>
   );
 };
+
+export default DocumentsPage;

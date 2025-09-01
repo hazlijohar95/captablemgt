@@ -1,6 +1,6 @@
 import React from 'react';
 import { screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import SecuritiesIssuanceWizardRefactored from '../../components/SecuritiesIssuanceWizardRefactored';
 import { 
   renderWithProviders, 
@@ -13,8 +13,8 @@ import {
 } from '../test-utils';
 
 // Mock all services
-jest.mock('../../services/issuanceService');
-jest.mock('@/services/csrfService');
+vi.mock('../../services/issuanceService');
+vi.mock('@/services/csrfService');
 
 describe('SecuritiesIssuanceWizard Integration', () => {
   const mockStakeholders = [
@@ -34,7 +34,7 @@ describe('SecuritiesIssuanceWizard Integration', () => {
   ];
 
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     
     // Setup default mocks
     const { issuanceService } = require('../../services/issuanceService');
@@ -55,7 +55,7 @@ describe('SecuritiesIssuanceWizard Integration', () => {
 
   describe('complete workflow - happy path', () => {
     it('should complete full security issuance workflow', async () => {
-      const mockOnComplete = jest.fn();
+      const mockOnComplete = vi.fn();
       
       renderWithProviders(
         <SecuritiesIssuanceWizardRefactored 

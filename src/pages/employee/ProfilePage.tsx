@@ -5,7 +5,7 @@ import { useEmployeeAuth } from '@/hooks/useEmployeeAuth';
 import { ProfileSettings } from '@/components/Employee/ProfileSettings';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
-export const ProfilePage: React.FC = () => {
+const ProfilePage: React.FC = () => {
   const { employee } = useEmployeeAuth();
 
   const {
@@ -95,3 +95,5 @@ export const ProfilePage: React.FC = () => {
     </div>
   );
 };
+
+export default ProfilePage;

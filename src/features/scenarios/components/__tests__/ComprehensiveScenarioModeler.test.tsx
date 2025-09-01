@@ -6,7 +6,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, it, expect, beforeEach, vi, Mock } from '@jest/globals';
+import { describe, it, expect, beforeEach, vi, Mock } from 'vitest';
 import { ComprehensiveScenarioModeler } from '../ComprehensiveScenarioModeler';
 import { useCompanyContext } from '@/hooks/useCompanyContext';
 import { capTableService } from '@/services/capTableService';

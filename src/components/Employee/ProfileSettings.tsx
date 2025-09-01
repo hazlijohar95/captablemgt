@@ -52,7 +52,7 @@ export const ProfileSettings: React.FC<ProfileSettingsProps> = ({ preferences })
   // Update preferences mutation
   const updatePreferencesMutation = useMutation({
     mutationFn: (updatedPreferences: Partial<EmployeePortalPreferences>) =>
-      employeePortalService.updateEmployeePreferences(employee!.id, updatedPreferences),
+      employeePortalService.updateEmployeePreferences(employee!.id, { preferences: updatedPreferences }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['employeeDashboard', employee?.id] });
       setHasChanges(false);

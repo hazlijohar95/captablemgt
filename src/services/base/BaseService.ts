@@ -5,6 +5,7 @@
 
 import { supabase } from '../supabase';
 import { ValidationError, AuthenticationError, NotFoundError } from '@/utils/validation';
+import { auditService } from '../auditService';
 
 export interface DatabaseClient {
   query: (sql: string, params?: any[]) => Promise<{ data: any; error: any }>;
@@ -163,11 +164,11 @@ export abstract class BaseService {
     metadata?: Record<string, any>
   ): void {
     // Audit logging - fire and forget
-    auditService.logActivity({
-      user_id: userId,
-      action: operation,
-      entity_type: 'reporting',
+    auditService.logEvent({
+      event_type: operation as any, // Will need proper typing later
+      entity_type: 'system' as any, // Will need proper typing later
       entity_id: entityId,
+      user_id: userId,
       metadata: metadata || {}
     }).catch(error => {
       console.error('Failed to log audit event:', error);

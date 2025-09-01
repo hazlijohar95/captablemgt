@@ -1,7 +1,7 @@
 import { supabase } from './supabase';
 import { AuthorizationService } from './authorizationService';
 import { CSRFService } from './csrfService';
-import { logger } from './loggingService';
+import { logger } from '@/utils/logger';
 import { ulid } from 'ulid';
 
 export class TransactionError extends Error {

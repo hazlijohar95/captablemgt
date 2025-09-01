@@ -39,17 +39,17 @@ export const AccessibleField: React.FC<AccessibleFieldProps> = ({
 
   // Clone the child element with accessibility props
   const childElement = React.cloneElement(children, {
-    id: children.props.id || fieldId,
+    id: (children.props as any).id || fieldId,
     'aria-required': required,
     'aria-invalid': error ? 'true' : 'false',
     'aria-describedby': describedBy,
-    ...children.props
+    ...(children.props as any)
   });
 
   return (
     <div className={`space-y-2 ${className}`}>
       <label 
-        htmlFor={children.props.id || fieldId}
+        htmlFor={(children.props as any).id || fieldId}
         className="block text-sm font-medium text-gray-700"
       >
         {label}
@@ -194,7 +194,7 @@ export const AccessibleButtonGroup: React.FC<AccessibleButtonGroupProps> = ({
 }) => {
   const groupId = useId();
 
-  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>, optionValue: string) => {
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLButtonElement>, optionValue: string) => {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault();
       onChange(optionValue);

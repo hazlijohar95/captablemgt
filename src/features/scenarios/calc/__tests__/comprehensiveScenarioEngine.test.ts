@@ -3,7 +3,7 @@
  * Unit tests for the integrated scenario modeling calculations
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { ComprehensiveScenarioEngine } from '../comprehensiveScenarioEngine';
 import { 
   ComprehensiveScenario,

@@ -5,7 +5,7 @@ import { useEmployeeAuth } from '@/hooks/useEmployeeAuth';
 import { VestingTimeline } from '@/components/Employee/VestingTimeline';
 import { AlertCircle, RefreshCw } from 'lucide-react';
 
-export const VestingPage: React.FC = () => {
+const VestingPage: React.FC = () => {
   const { employee } = useEmployeeAuth();
 
   const {
@@ -85,3 +85,5 @@ export const VestingPage: React.FC = () => {
     </div>
   );
 };
+
+export default VestingPage;

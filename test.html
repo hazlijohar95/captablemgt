@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cap Table Test Page</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            margin: 0;
+            padding: 40px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+            margin-bottom: 20px;
+        }
+        .status-box {
+            background: #f0f9ff;
+            border: 1px solid #3b82f6;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .success {
+            color: #10b981;
+            font-weight: bold;
+        }
+        .error {
+            color: #ef4444;
+            font-weight: bold;
+        }
+        .info-grid {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #6b7280;
+        }
+        .info-value {
+            font-family: monospace;
+            color: #111827;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .test-section {
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏢 Cap Table Platform - Test Page</h1>
+        
+        <div class="status-box">
+            <h2>✅ Static HTML Test Page</h2>
+            <p>This page loads without React to verify the server is working.</p>
+        </div>
+
+        <div class="test-section">
+            <h3>Server Status</h3>
+            <div class="info-grid">
+                <div class="info-label">Server URL:</div>
+                <div class="info-value">http://localhost:3000/</div>
+                
+                <div class="info-label">Test Page:</div>
+                <div class="info-value">http://localhost:3000/test.html</div>
+                
+                <div class="info-label">Status:</div>
+                <div class="info-value success">Working ✅</div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Quick Tests</h3>
+            <button onclick="testFetch()">Test API Fetch</button>
+            <button onclick="testConsole()">Test Console Log</button>
+            <button onclick="window.location.href='/'">Go to React App</button>
+            <div id="test-output" style="margin-top: 20px; padding: 10px; background: #f9fafb; border-radius: 4px; font-family: monospace; min-height: 50px;">
+                Click a button to run tests...
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>Troubleshooting Steps</h3>
+            <ol>
+                <li>Open browser console (F12) and check for errors</li>
+                <li>Look for any red error messages</li>
+                <li>Check the Network tab for failed requests</li>
+                <li>Try refreshing the page with cache disabled (Ctrl+Shift+R)</li>
+            </ol>
+        </div>
+
+        <div class="test-section" style="background: #fef2f2; border: 1px solid #fca5a5;">
+            <h3>⚠️ Common Issues</h3>
+            <ul>
+                <li><strong>Blank page:</strong> React compilation error - check console</li>
+                <li><strong>404 errors:</strong> Missing dependencies or wrong paths</li>
+                <li><strong>CORS errors:</strong> Supabase configuration issue</li>
+                <li><strong>Module errors:</strong> Import/export syntax issues</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        function testFetch() {
+            const output = document.getElementById('test-output');
+            output.innerHTML = 'Testing fetch API...';
+            
+            fetch('/src/main.tsx')
+                .then(res => {
+                    output.innerHTML = `<span class="success">✅ Fetch working!</span> Status: ${res.status}`;
+                })
+                .catch(err => {
+                    output.innerHTML = `<span class="error">❌ Fetch failed:</span> ${err.message}`;
+                });
+        }
+
+        function testConsole() {
+            const output = document.getElementById('test-output');
+            console.log('Test console log from test.html');
+            console.info('Environment:', {
+                userAgent: navigator.userAgent,
+                language: navigator.language,
+                platform: navigator.platform
+            });
+            output.innerHTML = '<span class="success">✅ Logged to console!</span> Check DevTools console (F12)';
+        }
+
+        // Auto-log page load
+        console.log('Test page loaded successfully at', new Date().toISOString());
+    </script>
+</body>
+</html>

@@ -146,7 +146,7 @@ function generateStakeholder(index: number, companyId: string = 'test-company'):
   const updatedAt = randomDate(new Date(createdAt), new Date());
   
   const stakeholder: MockStakeholder = {
-    id: generateId('stakeholder_'),
+    id: generateId(`stakeholder_${index}_`),
     type,
     company_id: companyId,
     created_at: createdAt,

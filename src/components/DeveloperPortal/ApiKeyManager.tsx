@@ -3,22 +3,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Key, 
   Plus, 
-  Eye, 
-  EyeOff, 
   Copy, 
   MoreVertical, 
   Settings,
-  Trash2,
   AlertCircle,
-  CheckCircle,
-  Clock
+  CheckCircle
 } from 'lucide-react';
 import { apiKeyService } from '@/services/apiKeyService';
 import { 
   ApiKeyListView, 
   CreateApiKeyRequest, 
   CreateApiKeyResponse,
-  ApiKeyDetails 
+  ApiKeyDetails,
+  ApiScope 
 } from '@/types/api';
 
 interface CreateApiKeyModalProps {
@@ -32,7 +29,7 @@ const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({ isOpen, onClose, 
     name: '',
     description: '',
     environment: 'sandbox' as 'sandbox' | 'production',
-    scopes: ['companies:read'],
+    scopes: ['companies:read'] as ApiScope[],
     rate_limit_tier: 'standard' as 'standard' | 'premium' | 'enterprise'
   });
 
@@ -45,7 +42,7 @@ const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({ isOpen, onClose, 
         name: '',
         description: '',
         environment: 'sandbox',
-        scopes: ['companies:read'],
+        scopes: ['companies:read'] as ApiScope[],
         rate_limit_tier: 'standard'
       });
     }
@@ -150,10 +147,10 @@ const CreateApiKeyModal: React.FC<CreateApiKeyModalProps> = ({ isOpen, onClose, 
                 <label key={scope} className="flex items-center">
                   <input
                     type="checkbox"
-                    checked={formData.scopes.includes(scope)}
+                    checked={formData.scopes.includes(scope as ApiScope)}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setFormData({...formData, scopes: [...formData.scopes, scope]});
+                        setFormData({...formData, scopes: [...formData.scopes, scope as ApiScope]});
                       } else {
                         setFormData({...formData, scopes: formData.scopes.filter(s => s !== scope)});
                       }
@@ -291,8 +288,6 @@ const ApiKeySecretModal: React.FC<ApiKeySecretModalProps> = ({ apiKeyResponse, o
 export const ApiKeyManager: React.FC = () => {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newApiKeyResponse, setNewApiKeyResponse] = useState<CreateApiKeyResponse | null>(null);
-  const [selectedKeyId, setSelectedKeyId] = useState<string | null>(null);
-  const [showSecrets, setShowSecrets] = useState<Record<string, boolean>>({});
 
   const queryClient = useQueryClient();
 
@@ -301,30 +296,13 @@ export const ApiKeyManager: React.FC = () => {
     queryFn: () => getApiKeys()
   });
 
-  const { data: keyDetails } = useQuery({
-    queryKey: ['apiKeyDetails', selectedKeyId],
-    queryFn: () => getApiKeyDetails(selectedKeyId!),
-    enabled: !!selectedKeyId
-  });
 
-  const revokeMutation = useMutation({
-    mutationFn: (keyId: string) => revokeApiKey(keyId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
-    }
-  });
 
   const handleCreateSuccess = (response: CreateApiKeyResponse) => {
     setNewApiKeyResponse(response);
     queryClient.invalidateQueries({ queryKey: ['apiKeys'] });
   };
 
-  const toggleSecretVisibility = (keyId: string) => {
-    setShowSecrets(prev => ({
-      ...prev,
-      [keyId]: !prev[keyId]
-    }));
-  };
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {

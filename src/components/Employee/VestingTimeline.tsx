@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Calendar, Clock, CheckCircle, AlertCircle } from 'lucide-react';
-import { EmployeeVestingSchedule, VestingMilestone } from '@/types/employeePortal';
+import { EmployeeVestingSchedule } from '@/types/employeePortal';
 
 interface VestingTimelineProps {
   vestingSchedules: EmployeeVestingSchedule[];
@@ -60,7 +60,6 @@ export const VestingTimeline: React.FC<VestingTimelineProps> = ({
         schedule.milestones.forEach(milestone => {
           const milestoneDate = milestone.completion_date || milestone.target_date;
           if (milestoneDate) {
-            const eventDate = new Date(milestoneDate);
             let status: TimelineEvent['status'] = 'upcoming';
             
             if (milestone.status === 'COMPLETED') {
@@ -102,7 +101,6 @@ export const VestingTimeline: React.FC<VestingTimelineProps> = ({
 
       // Add completion date if schedule is near completion
       if (schedule.vesting_end_date && schedule.completion_percentage > 80) {
-        const completionDate = new Date(schedule.vesting_end_date);
         events.push({
           id: `${schedule.id}-completion`,
           date: schedule.vesting_end_date,
@@ -120,7 +118,7 @@ export const VestingTimeline: React.FC<VestingTimelineProps> = ({
     return events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [vestingSchedules]);
 
-  const getStatusIcon = (status: TimelineEvent['status'], type: TimelineEvent['type']) => {
+  const getStatusIcon = (status: TimelineEvent['status']) => {
     switch (status) {
       case 'completed':
         return <CheckCircle className="w-5 h-5 text-green-500" />;
@@ -215,7 +213,7 @@ export const VestingTimeline: React.FC<VestingTimelineProps> = ({
             <div className="flex items-start space-x-3">
               {/* Status Icon */}
               <div className="flex-shrink-0 mt-0.5">
-                {getStatusIcon(event.status, event.type)}
+                {getStatusIcon(event.status)}
               </div>
               
               {/* Event Content */}

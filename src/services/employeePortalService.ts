@@ -667,6 +667,39 @@ export class EmployeePortalService extends BaseService {
       console.error('Failed to log employee activity:', error);
     }
   }
+
+  /**
+   * Public method for logging activity (called by components)
+   */
+  async logActivity(
+    activityType: string,
+    companyId: string,
+    employeeId: string,
+    activityDetails: Record<string, any> = {},
+    ipAddress?: string,
+    userAgent?: string
+  ): Promise<void> {
+    return this.logEmployeeActivity(
+      employeeId,
+      companyId,
+      activityType,
+      activityDetails,
+      ipAddress,
+      userAgent
+    );
+  }
+
+  /**
+   * Public method for getting dashboard data (called by components)
+   */
+  async getDashboardData(
+    employeeId: string,
+    sessionToken?: string
+  ): Promise<EmployeeDashboardData> {
+    // Use a default session token if not provided (for development)
+    const token = sessionToken || 'default-session';
+    return this.getEmployeeDashboard(employeeId, token);
+  }
 }
 
 // Export singleton instance
