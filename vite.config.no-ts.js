@@ -28,11 +28,7 @@ export default defineConfig({
       onwarn: () => {}, // Suppress all warnings
       external: [], // Don't externalize anything
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@headlessui/react', '@heroicons/react'],
-          utils: ['lodash', 'lodash-es', 'clsx', 'tailwind-merge'],
-        }
+        manualChunks: () => null, // Force single bundle
       }
     },
     target: 'es2015',
