@@ -17,10 +17,12 @@ import { UserManagement } from '@/features/users/components/UserManagement';
 import { DocumentLibrary } from '@/features/documents/components/DocumentLibrary';
 import { ReportsPage } from '@/features/reports/components';
 import { ThemeProvider } from '@/components/ui';
+import { DemoModeBanner } from '@/components/DemoModeBanner';
 
 function App() {
   return (
     <ThemeProvider>
+      <DemoModeBanner />
       <AuthProvider>
         <BrowserRouter>
         <Routes>

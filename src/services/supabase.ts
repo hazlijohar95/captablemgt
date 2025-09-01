@@ -2,13 +2,14 @@ import { createClient } from '@supabase/supabase-js';
 import { Database } from '@/types/database';
 import { initializeCSRFMiddleware } from './csrfMiddleware';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://demo.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'demo-key';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  throw new Error(
-    'Missing Supabase environment variables. Please check your .env.local file.'
-  );
+// Create a mock client for demo mode when environment variables are missing
+const isDemoMode = !import.meta.env.VITE_SUPABASE_URL || !import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+if (isDemoMode) {
+  console.warn('Running in DEMO MODE - Supabase environment variables not configured');
 }
 
 // Create Supabase client with type safety
@@ -26,7 +27,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
 });
 
 // Initialize CSRF protection middleware for all Supabase operations
-initializeCSRFMiddleware(supabase);
+if (!isDemoMode) {
+  initializeCSRFMiddleware(supabase);
+}
 
 // Helper for authenticated requests
 export const getAuthenticatedSupabase = () => {
